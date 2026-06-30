@@ -3,30 +3,18 @@
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Textarea } from "@/components/ui/Field";
 import { Modal } from "@/components/ui/Modal";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { AttachmentChip } from "@/components/ui/Attachment";
-import { Attachment, AttachmentKind, PostType } from "@/lib/types";
+import { FileDrop } from "@/components/ui/FileDrop";
+import { ClickSpark, ElasticSlider, StarBorder, Magnetic } from "@/components/reactbits";
+import { Attachment, PostType } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { useData } from "@/store/data";
 import { useSession } from "@/store/session";
-import {
-  FileText,
-  Film,
-  Image as ImageIcon,
-  Mic,
-  Paperclip,
-  Presentation,
-} from "lucide-react";
+import { Award, Send } from "lucide-react";
 import { useState } from "react";
 
 type Mode = "lesson" | "announcement" | "assignment";
-
-const attachKinds: { kind: AttachmentKind; label: string; icon: typeof FileText }[] = [
-  { kind: "pdf", label: "PDF", icon: FileText },
-  { kind: "slides", label: "Slaydlar", icon: Presentation },
-  { kind: "video", label: "Video", icon: Film },
-  { kind: "audio", label: "Audio", icon: Mic },
-  { kind: "image", label: "Rasm", icon: ImageIcon },
-];
 
 export function Composer({
   open,
@@ -50,6 +38,7 @@ export function Composer({
   const [points, setPoints] = useState(100);
   const [due, setDue] = useState("");
   const [files, setFiles] = useState<Attachment[]>([]);
+  const [allowSubmissions, setAllowSubmissions] = useState(false);
 
   const reset = () => {
     setTitle("");
@@ -58,27 +47,7 @@ export function Composer({
     setPoints(100);
     setDue("");
     setFiles([]);
-  };
-
-  const addFile = (kind: AttachmentKind) => {
-    const ext: Record<AttachmentKind, string> = {
-      pdf: "pdf",
-      slides: "key",
-      video: "mp4",
-      audio: "m4a",
-      image: "jpg",
-      doc: "docx",
-      link: "url",
-    };
-    setFiles((f) => [
-      ...f,
-      {
-        id: `at_${Math.random().toString(36).slice(2, 7)}`,
-        kind,
-        name: `${(title || "material").trim().replace(/\s+/g, "_").slice(0, 18)}_${f.length + 1}.${ext[kind]}`,
-        meta: "uploaded",
-      },
-    ]);
+    setAllowSubmissions(false);
   };
 
   const canSubmit =
@@ -107,6 +76,13 @@ export function Composer({
           ? tags.split(",").map((t) => t.trim()).filter(Boolean)
           : undefined,
         attachments: files,
+        // dars uchun: topshirishga ruxsat → bog'langan vazifa yaratiladi
+        allowSubmissions: mode === "lesson" ? allowSubmissions : undefined,
+        dueDate:
+          mode === "lesson" && allowSubmissions && due
+            ? new Date(due).toISOString()
+            : undefined,
+        points: mode === "lesson" && allowSubmissions ? points : undefined,
       });
     }
     reset();
@@ -117,6 +93,7 @@ export function Composer({
     <Modal
       open={open}
       onClose={onClose}
+      className="sm:max-w-xl"
       title="Guruhingiz bilan ulashing"
       description="U guruh lentasida paydo bo'ladi va har bir o'quvchiga xabar beriladi."
       footer={
@@ -124,13 +101,21 @@ export function Composer({
           <Button variant="ghost" size="sm" onClick={onClose}>
             Bekor qilish
           </Button>
-          <Button size="sm" onClick={submit} disabled={!canSubmit}>
-            {mode === "assignment" ? "Topshiriqni joylash" : "Chop etish"}
-          </Button>
+          <Magnetic strength={0.25}>
+            <StarBorder
+              onClick={submit}
+              disabled={!canSubmit}
+              className={cn(!canSubmit && "pointer-events-none opacity-50")}
+              innerClassName="flex items-center gap-2 px-5 py-2 text-[14px]"
+            >
+              <Send className="h-4 w-4" />
+              {mode === "assignment" ? "Topshiriqni joylash" : "Chop etish"}
+            </StarBorder>
+          </Magnetic>
         </>
       }
     >
-      <div className="space-y-4">
+      <ClickSpark className="space-y-3">
         <SegmentedControl
           value={mode}
           onChange={(v) => setMode(v as Mode)}
@@ -158,6 +143,7 @@ export function Composer({
           <Textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
+            className="min-h-[72px]"
             placeholder={
               mode === "assignment"
                 ? "O'quvchilar nima qilishi va qanday baholanishi kerak?"
@@ -166,26 +152,27 @@ export function Composer({
           />
         </Field>
 
-        {mode === "assignment" ? (
+        {mode === "assignment" && (
           <div className="grid grid-cols-2 gap-3">
             <Field label="Muddati">
-              <Input
-                type="date"
-                value={due}
-                onChange={(e) => setDue(e.target.value)}
-              />
+              <DatePicker value={due} onChange={setDue} />
             </Field>
-            <Field label="Ball">
-              <Input
-                type="number"
-                min={1}
-                value={points}
-                onChange={(e) => setPoints(Number(e.target.value))}
-              />
+            <Field label={`Ball — ${points}`}>
+              <div className="pt-3">
+                <ElasticSlider
+                  value={points}
+                  onChange={setPoints}
+                  min={5}
+                  max={100}
+                  leftIcon={<Award className="h-4 w-4" />}
+                />
+              </div>
             </Field>
           </div>
-        ) : (
-          mode === "lesson" && (
+        )}
+
+        {mode === "lesson" && (
+          <>
             <Field label="Teglar" hint="vergul bilan ajrating">
               <Input
                 value={tags}
@@ -193,36 +180,61 @@ export function Composer({
                 placeholder="Ramz, Matn tahlili"
               />
             </Field>
-          )
+
+            {/* submissions toggle */}
+            <div className="rounded-xl border border-border bg-bg/40 p-3">
+              <button
+                type="button"
+                onClick={() => setAllowSubmissions((v) => !v)}
+                className="flex w-full items-center justify-between gap-3 text-left"
+              >
+                <span>
+                  <span className="block text-[13px] font-semibold text-ink">
+                    Vazifa topshirishga ruxsat
+                  </span>
+                  <span className="block text-[12px] text-muted">
+                    O'quvchilar shu dars uchun ish topshira oladi
+                  </span>
+                </span>
+                <span
+                  className={cn(
+                    "relative h-6 w-11 shrink-0 rounded-full transition-colors",
+                    allowSubmissions ? "bg-accent" : "bg-elevated"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all",
+                      allowSubmissions ? "left-[22px]" : "left-0.5"
+                    )}
+                  />
+                </span>
+              </button>
+
+              {allowSubmissions && (
+                <div className="mt-3 grid grid-cols-2 gap-3 border-t border-border pt-3">
+                  <Field label="Muddati" hint="ixtiyoriy">
+                    <DatePicker value={due} onChange={setDue} />
+                  </Field>
+                  <Field label={`Ball — ${points}`}>
+                    <div className="pt-3">
+                      <ElasticSlider
+                        value={points}
+                        onChange={setPoints}
+                        min={5}
+                        max={100}
+                        leftIcon={<Award className="h-4 w-4" />}
+                      />
+                    </div>
+                  </Field>
+                </div>
+              )}
+            </div>
+          </>
         )}
 
-        <div>
-          <div className="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-ink">
-            <Paperclip className="h-3.5 w-3.5 text-faint" /> Material biriktirish
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {attachKinds.map((k) => {
-              const Icon = k.icon;
-              return (
-                <button
-                  key={k.kind}
-                  onClick={() => addFile(k.kind)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-bg/50 px-2.5 py-1.5 text-[12px] font-medium text-muted transition-colors hover:border-accent/40 hover:text-ink"
-                >
-                  <Icon className="h-3.5 w-3.5" /> {k.label}
-                </button>
-              );
-            })}
-          </div>
-          {files.length > 0 && (
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {files.map((a) => (
-                <AttachmentChip key={a.id} attachment={a} />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+        <FileDrop value={files} onChange={setFiles} />
+      </ClickSpark>
     </Modal>
   );
 }

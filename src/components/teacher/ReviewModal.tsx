@@ -1,11 +1,12 @@
 "use client";
 
 import { Avatar } from "@/components/ui/Avatar";
-import { AttachmentChip } from "@/components/ui/Attachment";
+import { PostAttachments } from "@/components/feed/PostAttachments";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Field, Textarea, Input } from "@/components/ui/Field";
+import { Field, Input } from "@/components/ui/Field";
 import { Modal } from "@/components/ui/Modal";
+import { ClickSpark, ElasticSlider } from "@/components/reactbits";
 import { getAssignment, getUser } from "@/lib/selectors";
 import { Submission } from "@/lib/types";
 import { relativeTime } from "@/lib/utils";
@@ -66,7 +67,7 @@ export function ReviewModal({
       }
     >
       {submission && student && assignment && (
-        <div className="space-y-5">
+        <ClickSpark className="space-y-5">
           <div className="flex items-center gap-3">
             <Avatar user={student} size="md" />
             <div className="min-w-0 flex-1">
@@ -83,33 +84,31 @@ export function ReviewModal({
               {submission.body || "Yozma javob yo'q."}
             </p>
             {submission.attachments.length > 0 && (
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {submission.attachments.map((a) => (
-                  <AttachmentChip key={a.id} attachment={a} />
-                ))}
-              </div>
+              <PostAttachments
+                attachments={submission.attachments}
+                className="mt-3"
+              />
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Baho" hint={`/ ${assignment.points}`} className="col-span-1">
-              <Input
-                type="number"
+          <Field label={`Baho — ${score} / ${assignment.points}`}>
+            <div className="pt-3">
+              <ElasticSlider
+                value={score}
+                onChange={setScore}
                 min={0}
                 max={assignment.points}
-                value={score}
-                onChange={(e) => setScore(Number(e.target.value))}
               />
-            </Field>
-            <Field label="Izoh" className="col-span-2">
-              <Input
-                value={feedback}
-                onChange={(e) => setFeedback(e.target.value)}
-                placeholder="Bitta aniq, xayrli va foydali izoh…"
-              />
-            </Field>
-          </div>
-        </div>
+            </div>
+          </Field>
+          <Field label="Izoh">
+            <Input
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              placeholder="Bitta aniq, xayrli va foydali izoh…"
+            />
+          </Field>
+        </ClickSpark>
       )}
     </Modal>
   );

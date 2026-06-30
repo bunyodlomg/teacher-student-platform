@@ -34,14 +34,12 @@ export function AttachmentChip({
 }) {
   const m = meta[attachment.kind];
   const Icon = m.icon;
-  return (
-    <button
-      type="button"
-      className={cn(
-        "group flex items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2.5 text-left transition-colors hover:border-accent/40 hover:bg-elevated",
-        className
-      )}
-    >
+  const cls = cn(
+    "group flex items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2.5 text-left transition-colors hover:border-accent/40 hover:bg-elevated",
+    className
+  );
+  const inner = (
+    <>
       <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", m.tint)}>
         <Icon className="h-[18px] w-[18px]" strokeWidth={1.9} />
       </span>
@@ -54,6 +52,26 @@ export function AttachmentChip({
           {attachment.meta ? ` · ${attachment.meta}` : ""}
         </span>
       </span>
+    </>
+  );
+
+  // uploaded documents download on click
+  if (attachment.url) {
+    return (
+      <a
+        href={attachment.url}
+        download={attachment.name}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cls}
+      >
+        {inner}
+      </a>
+    );
+  }
+  return (
+    <button type="button" className={cls}>
+      {inner}
     </button>
   );
 }

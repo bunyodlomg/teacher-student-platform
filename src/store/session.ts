@@ -24,6 +24,15 @@ interface SessionState {
   /** Login (oddiy matn) + parol bilan kirish. */
   login: (email: string, password: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
+  /** Update own profile (name, headline, avatar hue, password). */
+  updateProfile: (data: {
+    name?: string;
+    headline?: string;
+    hue?: string;
+    avatarUrl?: string;
+    currentPassword?: string;
+    newPassword?: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
 
   theme: Theme;
   toggleTheme: () => void;
@@ -98,6 +107,28 @@ export const useSession = create<SessionState>()(
           });
         } catch {}
         set({ currentUserId: null, role: null, user: null });
+      },
+
+      updateProfile: async (data) => {
+        try {
+          const res = await fetch("/api/auth/me", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(data),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok)
+            return { ok: false, error: d?.error || "Saqlashda xatolik" };
+          set({
+            user: d.user as User,
+            role: (d.user as User).role,
+            currentUserId: (d.user as User).id,
+          });
+          return { ok: true };
+        } catch {
+          return { ok: false, error: "Tarmoq xatosi" };
+        }
       },
 
       theme: "light",

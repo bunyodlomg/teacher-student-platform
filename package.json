@@ -10,10 +10,12 @@
     "db:seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
+    "@gsap/react": "^2.1.2",
     "bcryptjs": "2.4.3",
     "clsx": "2.1.1",
     "cookie": "0.6.0",
     "framer-motion": "11.11.9",
+    "gsap": "^3.15.0",
     "jsonwebtoken": "9.0.2",
     "lucide-react": "0.451.0",
     "mongoose": "8.8.1",

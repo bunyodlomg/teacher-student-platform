@@ -5,6 +5,7 @@ import { PostCard } from "@/components/feed/PostCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Aurora } from "@/components/motion";
 import { getGroup, postsForGroup } from "@/lib/selectors";
+import { useFocusPost } from "@/lib/useFocusPost";
 import { useData } from "@/store/data";
 import { BookOpen } from "lucide-react";
 import { useParams } from "next/navigation";
@@ -16,10 +17,12 @@ export default function StudentGroupFeed() {
   const posts = useData((s) => s.posts);
 
   const group = getGroup(groups, id);
+  const feed = group ? postsForGroup(posts, id) : [];
+  useFocusPost(feed.length > 0);
+
   if (!group) {
     return <div className="py-20 text-center text-muted">Guruh topilmadi.</div>;
   }
-  const feed = postsForGroup(posts, id);
 
   return (
     <div className="relative mx-auto max-w-2xl">

@@ -25,5 +25,8 @@ yarn-debug.log*
 .idea
 .vscode
 
+# uploaded files (runtime)
+public/uploads
+
 # deploy
 .vercel

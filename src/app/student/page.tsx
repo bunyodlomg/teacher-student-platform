@@ -16,7 +16,7 @@ import {
 } from "@/lib/selectors";
 import { useData } from "@/store/data";
 import { useSession } from "@/store/session";
-import { daysUntil } from "@/lib/utils";
+import { daysUntil, formatDateLong } from "@/lib/utils";
 import { CalendarClock, Flame, ListTodo, PartyPopper, Trophy } from "lucide-react";
 import Link from "next/link";
 
@@ -52,11 +52,7 @@ export default function StudentDashboard() {
     <div className="relative">
       <Aurora />
       <PageHeader
-        eyebrow={new Date().toLocaleDateString("uz-UZ", {
-          weekday: "long",
-          month: "long",
-          day: "numeric",
-        })}
+        eyebrow={formatDateLong(new Date())}
         title={`${greeting()}, ${me?.name.split(" ")[0]} 👋`}
         subtitle="Bugun sizga kerak bo'lgan hamma narsa shu yerda — ortiqchasi yo'q."
         gradient

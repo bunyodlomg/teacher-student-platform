@@ -22,6 +22,10 @@ interface NewPostInput {
   body: string;
   tags?: string[];
   attachments?: Attachment[];
+  /** lesson only: open it for student submissions (creates a linked task) */
+  allowSubmissions?: boolean;
+  dueDate?: string;
+  points?: number;
 }
 
 interface NewAssignmentInput {
@@ -53,6 +57,16 @@ interface DataState {
 
   // ---- feed / social ----
   addPost: (input: NewPostInput) => Promise<void>;
+  editPost: (
+    postId: string,
+    data: {
+      title: string;
+      body: string;
+      tags?: string[];
+      attachments?: Attachment[];
+    }
+  ) => Promise<{ ok: boolean; error?: string }>;
+  deletePost: (postId: string) => Promise<{ ok: boolean; error?: string }>;
   toggleReaction: (postId: string, emoji: string, userId: string) => Promise<void>;
   addComment: (postId: string, authorId: string, body: string) => Promise<void>;
 
@@ -92,7 +106,18 @@ interface DataState {
     description: string;
     teacherId: string;
   }) => Promise<{ ok: boolean; error?: string }>;
-  updateGroupMembers: (groupId: string, studentIds: string[]) => Promise<void>;
+  /** Create a group as a teacher/student (not the admin-only endpoint). */
+  createGroup: (g: {
+    name: string;
+    subject: string;
+    description: string;
+    teacherId?: string;
+    studentIds?: string[];
+  }) => Promise<{ ok: boolean; error?: string }>;
+  updateGroupMembers: (
+    groupId: string,
+    studentIds: string[]
+  ) => Promise<{ ok: boolean; error?: string }>;
 }
 
 async function postJSON(url: string, body?: unknown) {
@@ -157,6 +182,16 @@ export const useData = create<DataState>()((set, get) => ({
         socket.on("feed:post-updated", (p: Post) =>
           set((st) => ({ posts: upsertById(st.posts, p) }))
         );
+        socket.on(
+          "feed:post-deleted",
+          (payload: { id: string; assignmentId?: string }) =>
+            set((st) => ({
+              posts: st.posts.filter((p) => p.id !== payload.id),
+              assignments: payload.assignmentId
+                ? st.assignments.filter((a) => a.id !== payload.assignmentId)
+                : st.assignments,
+            }))
+        );
         socket.on("assignment:new", (a: Assignment) =>
           set((st) => ({ assignments: upsertById(st.assignments, a) }))
         );
@@ -166,6 +201,15 @@ export const useData = create<DataState>()((set, get) => ({
         socket.on("notification:new", (n: AppNotification) =>
           set((st) => ({ notifications: upsertById(st.notifications, n) }))
         );
+        // Group membership changed elsewhere (admin added/removed me, or
+        // changed a roster). Rejoin socket rooms with fresh membership and
+        // reload the scoped state so new groups/feeds appear immediately.
+        socket.on("state:refresh", () => {
+          socket.disconnect();
+          socket.connect();
+          set({ loading: false });
+          get().bootstrap();
+        });
       }
     } catch {
       set({ loading: false });
@@ -191,9 +235,61 @@ export const useData = create<DataState>()((set, get) => ({
       body: input.body,
       tags: input.tags,
       attachments: input.attachments,
+      allowSubmissions: input.allowSubmissions,
+      dueDate: input.dueDate,
+      points: input.points,
     });
     if (ok && data.post)
-      set((st) => ({ posts: upsertById(st.posts, data.post) }));
+      set((st) => ({
+        posts: upsertById(st.posts, data.post),
+        assignments: data.assignment
+          ? upsertById(st.assignments, data.assignment)
+          : st.assignments,
+      }));
+  },
+
+  editPost: async (postId, d) => {
+    try {
+      const res = await fetch(`/api/posts/${postId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(d),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok)
+        return { ok: false, error: data?.error || "Saqlashda xatolik" };
+      set((st) => ({
+        posts: data.post ? upsertById(st.posts, data.post) : st.posts,
+        assignments: data.assignment
+          ? upsertById(st.assignments, data.assignment)
+          : st.assignments,
+      }));
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Tarmoq xatosi" };
+    }
+  },
+
+  deletePost: async (postId) => {
+    try {
+      const res = await fetch(`/api/posts/${postId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok)
+        return { ok: false, error: data?.error || "O'chirishda xatolik" };
+      set((st) => ({
+        posts: st.posts.filter((p) => p.id !== postId),
+        assignments: data.assignmentId
+          ? st.assignments.filter((a) => a.id !== data.assignmentId)
+          : st.assignments,
+      }));
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Tarmoq xatosi" };
+    }
   },
 
   toggleReaction: async (postId, emoji, userId) => {
@@ -314,15 +410,41 @@ export const useData = create<DataState>()((set, get) => ({
     return { ok: false, error: data?.error };
   },
 
+  createGroup: async (g) => {
+    try {
+      const res = await fetch("/api/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(g),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok)
+        return { ok: false, error: data?.error || "Yaratishda xatolik" };
+      if (data.group)
+        set((st) => ({ groups: upsertById(st.groups, data.group) }));
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Tarmoq xatosi" };
+    }
+  },
+
   updateGroupMembers: async (groupId, studentIds) => {
-    const res = await fetch(`/api/admin/groups/${groupId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ studentIds }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data.group)
-      set((st) => ({ groups: upsertById(st.groups, data.group) }));
+    try {
+      const res = await fetch(`/api/groups/${groupId}/members`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ studentIds }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok)
+        return { ok: false, error: data?.error || "Saqlashda xatolik" };
+      if (data.group)
+        set((st) => ({ groups: upsertById(st.groups, data.group) }));
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Tarmoq xatosi" };
+    }
   },
 }));

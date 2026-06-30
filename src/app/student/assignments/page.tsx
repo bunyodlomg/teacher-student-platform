@@ -2,8 +2,8 @@
 
 import { PageHeader } from "@/components/app/PageHeader";
 import { AssignmentCard } from "@/components/student/AssignmentCard";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { Folder } from "@/components/reactbits";
 import {
   assignmentsForStudent,
   effectiveStatus,
@@ -12,7 +12,6 @@ import {
 import { Aurora } from "@/components/motion";
 import { useData } from "@/store/data";
 import { useSession } from "@/store/session";
-import { ListChecks } from "lucide-react";
 import { useMemo, useState } from "react";
 
 type Filter = "all" | "todo" | "submitted" | "graded";
@@ -73,11 +72,17 @@ export default function StudentAssignments() {
       />
 
       {list.length === 0 ? (
-        <EmptyState
-          icon={ListChecks}
-          title="Hech narsa yo'q"
-          description="Bu filtrga mos topshiriq topilmadi."
-        />
+        <div className="flex flex-col items-center gap-5 rounded-2xl border border-border bg-surface/60 py-16 text-center">
+          <Folder size={1.1} />
+          <div>
+            <p className="font-display text-lg font-semibold text-ink">
+              Hech narsa yo'q
+            </p>
+            <p className="mt-1 text-[14px] text-muted">
+              Bu filtrga mos topshiriq topilmadi.
+            </p>
+          </div>
+        </div>
       ) : (
         <div className="space-y-3">
           {list.map((a, i) => (

@@ -1,29 +1,23 @@
-"use client";
-
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
 
-/** Heading text with a slowly drifting accent gradient. */
+/** Heading text with a static accent gradient (no continuous animation). */
 export function GradientText({
   children,
   className,
-  duration = 6,
 }: {
   children: React.ReactNode;
   className?: string;
+  /** kept for backwards-compat; no longer animates */
   duration?: number;
 }) {
   return (
-    <motion.span
+    <span
       className={cn(
-        "inline-block bg-gradient-to-r from-accent via-accent-2 to-accent bg-clip-text text-transparent",
+        "bg-gradient-to-r from-accent via-accent-2 to-accent-3 bg-clip-text text-transparent",
         className
       )}
-      style={{ backgroundSize: "200% auto" }}
-      animate={{ backgroundPosition: ["0% 50%", "200% 50%"] }}
-      transition={{ duration, ease: "linear", repeat: Infinity }}
     >
       {children}
-    </motion.span>
+    </span>
   );
 }

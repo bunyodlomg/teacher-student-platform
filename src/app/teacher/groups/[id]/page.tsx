@@ -1,6 +1,7 @@
 "use client";
 
 import { GroupHero } from "@/components/app/GroupHero";
+import { ManageMembersModal } from "@/components/app/ManageMembersModal";
 import { PostCard } from "@/components/feed/PostCard";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -13,8 +14,9 @@ import {
   submissionsForAssignment,
 } from "@/lib/selectors";
 import { dueLabel } from "@/lib/utils";
+import { useFocusPost } from "@/lib/useFocusPost";
 import { useData } from "@/store/data";
-import { BookOpen, Plus } from "lucide-react";
+import { BookOpen, Plus, Users } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -27,9 +29,11 @@ export default function TeacherGroup() {
   const submissions = useData((s) => s.submissions);
 
   const [composer, setComposer] = useState(false);
+  const [members, setMembers] = useState(false);
 
   const group = getGroup(groups, id);
   const feed = useMemo(() => postsForGroup(posts, id), [posts, id]);
+  useFocusPost(feed.length > 0);
   const groupAssignments = useMemo(
     () =>
       assignments
@@ -48,9 +52,14 @@ export default function TeacherGroup() {
       <GroupHero
         group={group}
         action={
-          <Button size="sm" onClick={() => setComposer(true)}>
-            <Plus className="h-4 w-4" /> Ulashish
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setMembers(true)}>
+              <Users className="h-4 w-4" /> O'quvchilar
+            </Button>
+            <Button size="sm" onClick={() => setComposer(true)}>
+              <Plus className="h-4 w-4" /> Ulashish
+            </Button>
+          </div>
         }
       />
 
@@ -126,6 +135,12 @@ export default function TeacherGroup() {
         open={composer}
         onClose={() => setComposer(false)}
         groupId={group.id}
+      />
+
+      <ManageMembersModal
+        group={members ? group : null}
+        open={members}
+        onClose={() => setMembers(false)}
       />
     </div>
   );

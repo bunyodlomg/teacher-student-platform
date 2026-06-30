@@ -1,33 +1,45 @@
-"use client";
-
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
 
-/** Soft, slowly drifting gradient blobs sitting behind page content. */
-export function Aurora({ className }: { className?: string }) {
+/**
+ * Static gradient-mesh wash that reads the role-tinted accent vars. Rendered as
+ * plain (non-animated) blurred blobs — painted once, so it adds no continuous
+ * GPU/compositing cost. (Previously animated; made static for performance.)
+ */
+export function Aurora({
+  className,
+  full = false,
+  intensity = 1,
+}: {
+  className?: string;
+  full?: boolean;
+  intensity?: number;
+}) {
+  const blob = "absolute rounded-full blur-2xl";
+  const o = (n: number) => Math.min(1, n * intensity);
+
   return (
     <div
       aria-hidden
       className={cn(
-        "pointer-events-none absolute inset-x-0 top-0 -z-10 h-72 overflow-hidden",
+        "pointer-events-none overflow-hidden",
+        full ? "absolute inset-0 -z-10" : "absolute inset-x-0 top-0 -z-10 h-72",
         className
       )}
     >
-      <motion.div
-        className="absolute -left-20 -top-28 h-72 w-72 rounded-full bg-accent/25 blur-3xl"
-        animate={{ x: [0, 40, 0], y: [0, 24, 0], scale: [1, 1.15, 1] }}
-        transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+      <div
+        className={cn(blob, "h-72 w-72 bg-accent")}
+        style={{ opacity: o(0.26), left: "-6%", top: full ? "-8%" : "-30%" }}
       />
-      <motion.div
-        className="absolute right-0 -top-24 h-72 w-72 rounded-full bg-accent-2/25 blur-3xl"
-        animate={{ x: [0, -36, 0], y: [0, 36, 0], scale: [1.1, 1, 1.1] }}
-        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+      <div
+        className={cn(blob, "h-72 w-72 bg-accent-2")}
+        style={{ opacity: o(0.24), right: "-4%", top: full ? "6%" : "-26%" }}
       />
-      <motion.div
-        className="absolute left-1/3 -top-32 h-64 w-64 rounded-full bg-success/15 blur-3xl"
-        animate={{ x: [0, 24, 0], y: [0, 30, 0], scale: [1, 1.2, 1] }}
-        transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-      />
+      {full && (
+        <div
+          className={cn(blob, "h-64 w-64 bg-accent-3")}
+          style={{ opacity: o(0.18), left: "40%", top: "58%" }}
+        />
+      )}
     </div>
   );
 }

@@ -8,6 +8,8 @@ export interface User {
   /** tailwind gradient pair for avatar */
   hue: string;
   headline?: string;
+  /** uploaded avatar image url (overrides the gradient initials) */
+  avatarUrl?: string;
 }
 
 export type AttachmentKind =
@@ -24,6 +26,8 @@ export interface Attachment {
   kind: AttachmentKind;
   name: string;
   meta?: string; // e.g. "2.4 MB", "12 min", "8 slides"
+  /** download/preview URL for uploaded files (e.g. /uploads/<uuid>.pdf) */
+  url?: string;
 }
 
 export interface Reaction {

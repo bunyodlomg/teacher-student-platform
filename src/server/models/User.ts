@@ -8,6 +8,7 @@ const UserSchema = new Schema(
     role: { type: String, enum: ["admin", "teacher", "student"], required: true },
     hue: { type: String, default: "from-indigo-500 to-blue-400" },
     headline: { type: String },
+    avatarUrl: { type: String },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

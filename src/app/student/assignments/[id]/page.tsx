@@ -1,12 +1,14 @@
 "use client";
 
 import { PageHeader } from "@/components/app/PageHeader";
-import { AttachmentChip } from "@/components/ui/Attachment";
+import { PostAttachments } from "@/components/feed/PostAttachments";
+import { FileDrop } from "@/components/ui/FileDrop";
+import { AddToCalendar } from "@/components/ui/AddToCalendar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Field";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { Attachment, AttachmentKind } from "@/lib/types";
+import { Attachment } from "@/lib/types";
 import {
   getAssignment,
   getGroup,
@@ -19,22 +21,12 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft,
   CheckCircle2,
-  FileText,
-  Image as ImageIcon,
-  Mic,
-  Paperclip,
   Save,
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-
-const attachOptions: { kind: AttachmentKind; label: string; icon: typeof FileText }[] = [
-  { kind: "doc", label: "Hujjat", icon: FileText },
-  { kind: "image", label: "Rasm", icon: ImageIcon },
-  { kind: "audio", label: "Audio", icon: Mic },
-];
 
 export default function AssignmentDetail() {
   const params = useParams();
@@ -66,23 +58,6 @@ export default function AssignmentDetail() {
   const graded = status === "approved";
   const locked = graded;
 
-  const addFile = (kind: AttachmentKind) => {
-    const names: Record<string, string> = {
-      doc: `My_response_${files.length + 1}.docx`,
-      image: `photo_${files.length + 1}.jpg`,
-      audio: `voice_note_${files.length + 1}.m4a`,
-    };
-    setFiles((f) => [
-      ...f,
-      {
-        id: `up_${Math.random().toString(36).slice(2, 7)}`,
-        kind,
-        name: names[kind] ?? "file",
-        meta: "just now",
-      },
-    ]);
-  };
-
   const save = (submit: boolean) => {
     upsert(id, userId, {
       body,
@@ -105,7 +80,18 @@ export default function AssignmentDetail() {
       <PageHeader
         eyebrow={group?.name}
         title={assignment.title}
-        action={<StatusBadge status={status} />}
+        action={
+          <div className="flex items-center gap-2">
+            <AddToCalendar
+              event={{
+                title: assignment.title,
+                details: assignment.description,
+                due: assignment.dueDate,
+              }}
+            />
+            <StatusBadge status={status} />
+          </div>
+        }
       />
 
       <div className="grid gap-6 lg:grid-cols-5">
@@ -125,11 +111,10 @@ export default function AssignmentDetail() {
               {assignment.description}
             </p>
             {assignment.attachments.length > 0 && (
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {assignment.attachments.map((a) => (
-                  <AttachmentChip key={a.id} attachment={a} />
-                ))}
-              </div>
+              <PostAttachments
+                attachments={assignment.attachments}
+                className="mt-4"
+              />
             )}
           </div>
 
@@ -176,35 +161,16 @@ export default function AssignmentDetail() {
               className="min-h-[140px]"
             />
 
-            {files.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {files.map((a) => (
-                  <AttachmentChip key={a.id} attachment={a} />
-                ))}
-              </div>
+            {/* locked (graded): read-only view of what was submitted */}
+            {locked && files.length > 0 && (
+              <PostAttachments attachments={files} className="mt-3" />
             )}
 
             {!locked && (
               <>
-                <div className="mt-3 flex items-center gap-1.5">
-                  <Paperclip className="h-3.5 w-3.5 text-faint" />
-                  {attachOptions.map((o) => {
-                    const Icon = o.icon;
-                    return (
-                      <button
-                        key={o.kind}
-                        onClick={() => addFile(o.kind)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-bg/50 px-2.5 py-1.5 text-[12px] font-medium text-muted transition-colors hover:border-accent/40 hover:text-ink"
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                        {o.label}
-                      </button>
-                    );
-                  })}
+                <div className="mt-3">
+                  <FileDrop value={files} onChange={setFiles} />
                 </div>
-                <p className="mt-2 text-[11px] text-faint">
-                  O'quvchilar uchun video yuklash mavjud emas.
-                </p>
 
                 <div className="mt-4 flex items-center gap-2">
                   <Button

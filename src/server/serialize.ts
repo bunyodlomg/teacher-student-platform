@@ -33,6 +33,7 @@ interface RawAttachment {
   kind: Attachment["kind"];
   name: string;
   meta?: string;
+  url?: string;
 }
 
 interface RawReaction {
@@ -55,6 +56,7 @@ export function sUser(u: UserDoc): User {
     role: u.role as User["role"],
     hue: u.hue,
     headline: u.headline ?? undefined,
+    avatarUrl: u.avatarUrl ?? undefined,
   };
 }
 
@@ -77,6 +79,7 @@ export function sAttachment(a: RawAttachment): Attachment {
     kind: a.kind,
     name: a.name,
     meta: a.meta ?? undefined,
+    url: a.url ?? undefined,
   };
 }
 

@@ -3,10 +3,11 @@
 import { Field, Input } from "@/components/ui/Field";
 import { Logo } from "@/components/ui/Logo";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { Aurora, GradientText, ShimmerButton } from "@/components/motion";
 import { Role } from "@/lib/types";
 import { useSession } from "@/store/session";
 import { motion } from "framer-motion";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -39,9 +40,11 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="relative grid min-h-screen lg:grid-cols-2">
+    <main className="relative grid min-h-screen overflow-hidden lg:grid-cols-2">
+      <Aurora full intensity={1.1} />
+
       {/* chap: forma */}
-      <div className="flex flex-col px-6 py-6 sm:px-10">
+      <div className="relative flex flex-col px-6 py-6 sm:px-10">
         <div className="flex items-center justify-between">
           <Logo />
           <ThemeToggle />
@@ -49,20 +52,27 @@ export default function LoginPage() {
 
         <div className="flex flex-1 items-center">
           <motion.div
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ ease }}
+            transition={{ ease, duration: 0.6 }}
             className="mx-auto w-full max-w-sm"
           >
-            <p className="eyebrow">Cambridge Learn</p>
-            <h1 className="mt-3 font-display text-[34px] font-medium leading-tight tracking-[-0.01em] text-ink">
-              Xush kelibsiz
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-surface/60 px-3 py-1 text-[12px] font-medium text-muted backdrop-blur">
+              <Sparkles className="h-3.5 w-3.5 text-accent" />
+              Cambridge Learn
+            </span>
+            <h1 className="mt-4 font-display text-[36px] font-medium leading-tight tracking-[-0.01em] text-ink">
+              Xush <GradientText>kelibsiz</GradientText>
             </h1>
             <p className="mt-2 text-[15px] leading-relaxed text-muted">
               Davom etish uchun hisobingizga kiring.
             </p>
 
-            <form onSubmit={submit} className="mt-8 space-y-4">
+            {/* glass form card */}
+            <form
+              onSubmit={submit}
+              className="glass-card mt-7 space-y-4 rounded-2xl border border-border/70 p-6"
+            >
               <Field label="Login">
                 <Input
                   type="text"
@@ -89,13 +99,20 @@ export default function LoginPage() {
               </Field>
 
               {error && (
-                <p className="text-[13px] font-medium text-danger">{error}</p>
+                <motion.p
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-[13px] font-medium text-danger"
+                >
+                  {error}
+                </motion.p>
               )}
 
-              <button
+              <ShimmerButton
                 type="submit"
                 disabled={loading}
-                className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent text-[15px] font-medium text-accent-ink transition-transform hover:-translate-y-0.5 disabled:opacity-70"
+                magnetic={false}
+                className="w-full"
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -105,7 +122,7 @@ export default function LoginPage() {
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </>
                 )}
-              </button>
+              </ShimmerButton>
             </form>
 
             <p className="mt-6 text-[13px] leading-relaxed text-muted">
@@ -115,23 +132,28 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* o'ng: editorial panel */}
-      <div className="relative hidden overflow-hidden border-l border-border bg-elevated/40 lg:block">
-        <div className="flex h-full flex-col justify-between p-12">
-          <div />
+      {/* o'ng: editorial glass panel */}
+      <div className="relative hidden overflow-hidden border-l border-border/60 lg:block">
+        <div className="glass-strong absolute inset-0" />
+        <div className="relative flex h-full flex-col justify-between p-12">
+          <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
+            </span>
+            Tizim faol
+          </div>
           <div>
             <p className="font-display text-[40px] font-medium leading-[1.15] tracking-[-0.01em] text-ink text-balance">
-              “O'rganish{" "}
-              <span className="italic text-accent">sokin</span> bo'lganda,
-              chuqurroq bo'ladi.”
+              “O'rganish <span className="italic text-gradient">sokin</span>{" "}
+              bo'lganda, chuqurroq bo'ladi.”
             </p>
             <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
               Cambridge Learn · IELTS &amp; General English
             </p>
           </div>
-          <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
-            <span className="h-1.5 w-1.5 rounded-full bg-success" />
-            Tizim faol
+          <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
+            © 2026 · O'zbek tilida
           </div>
         </div>
       </div>

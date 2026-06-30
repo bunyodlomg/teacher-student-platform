@@ -4,17 +4,24 @@ import { cn } from "@/lib/utils";
 import { motion, HTMLMotionProps } from "framer-motion";
 import { forwardRef } from "react";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger" | "subtle";
+type Variant =
+  | "primary"
+  | "glow"
+  | "secondary"
+  | "ghost"
+  | "danger"
+  | "subtle";
 type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
   primary:
-    "bg-accent text-accent-ink shadow-soft hover:shadow-glow hover:brightness-[1.07] active:brightness-95",
+    "bg-accent text-accent-ink shadow-soft hover:shadow-glow-accent hover:brightness-[1.05] active:brightness-95",
+  glow: "relative overflow-hidden bg-accent-gradient bg-[length:200%_200%] text-accent-ink shadow-glow-accent hover:shadow-glow-lg animate-gradient-x",
   secondary:
-    "bg-surface text-ink border border-border hover:bg-elevated shadow-xs hover:shadow-soft",
+    "bg-surface/80 text-ink border border-border backdrop-blur hover:bg-elevated hover:border-accent/30 shadow-xs hover:shadow-soft",
   subtle: "bg-accent-soft text-accent hover:brightness-105",
   ghost: "text-muted hover:text-ink hover:bg-elevated",
-  danger: "bg-danger text-white hover:brightness-110",
+  danger: "bg-danger text-white hover:brightness-110 shadow-soft",
 };
 
 const sizes: Record<Size, string> = {

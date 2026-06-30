@@ -4,7 +4,8 @@ O'qituvchi · o'quvchi platformasi. UI o'zbek tilida.
 
 ## Stack
 - **Next.js 14** (App Router) + **React 18** + **TypeScript**
-- **Tailwind CSS** + **Framer Motion**
+- **Tailwind CSS** + **Framer Motion** + **GSAP** (`@gsap/react`, ScrollTrigger)
+- **Dizayn tili — Aurora Glass** (glassmorphism + gradient mesh + rolga adaptiv ranglar). Pastdagi "Dizayn tizimi" bo'limiga qarang.
 - **Zustand** (`src/store/session.ts`, `src/store/data.ts`)
 - **Custom server** — `server.ts` (Next + **Socket.IO**)
 - **MongoDB** + **Mongoose 8** (modellar `src/server/models/`)
@@ -76,6 +77,36 @@ Ilova **100% real** — klient mock/seed yo'q. Barcha ma'lumot MongoDB'dan API o
 - `Submission.status`: `not_started | draft | submitted | approved | rejected`.
 - `Submission` da `{ assignmentId, studentId }` unique compound index.
 - `Post.reactions` — `[{ userId, emoji }]` embedded; serializer ularni `{ emoji, userIds[] }` ga aylantiradi.
+
+## Dizayn tizimi — Aurora Glass (MUHIM)
+Vizual til: **glassmorphism + gradient mesh + rolga adaptiv ranglar**. Yangi UI yozganda shu tizimga rioya qil — qattiq (hardcoded) ranglar ishlatma, doim token va accent o'zgaruvchilaridan foydalan.
+
+**Rang tokenlari** (`src/app/globals.css`) — hammasi CSS o'zgaruvchilari, Tailwind orqali `bg / surface / elevated / border / ink / muted / faint / accent / accent-2 / accent-3 / accent-soft / accent-ink / success / warning / danger`.
+
+**Rolga adaptiv accent** — `[data-role="student|teacher|admin"]` selektori `--accent*` larni qayta bo'yaydi:
+- `student` → indigo→violet→cyan · `teacher` → emerald→teal→sky · `admin` → amber→orange→pink.
+- `AppShell` ildiz `div` iga `data-role={role}` qo'yadi → butun ilova rolga qarab o'zini qayta bo'yaydi, **komponentni o'zgartirmasdan**. Mesh, glow, gradient, text — barchasi shu `--accent*` larni o'qiydi.
+- Login/landing rol tanlanmagan, shu sabab default (indigo) brendni ishlatadi.
+
+**Utility klasslar** (globals.css `@layer utilities`):
+- `.glass`, `.glass-strong`, `.glass-card` — frosted (blur) yuzalar. Sticky topbar/sidebar va modal/card uchun.
+- `.border-gradient`, `.border-gradient-glass` — gradient hairline ramka (padding-box/border-box trick).
+- `.glow-accent`, `.glow-ring`, `.text-gradient`, `.nums` (tabular sonlar), `.eyebrow`, `.rule`.
+- Tailwind: `shadow-glow-accent`/`shadow-glow-lg`, `bg-accent-gradient`/`bg-accent-sheen`, animatsiyalar `animate-gradient-x | shine | float | spin-slow | shimmer | pulse-ring`.
+
+**Motion primitivlari** (`src/components/motion/`, `index.ts` dan import qil):
+- `Aurora` — surilib yuruvchi gradient-mesh bloblar (`full` to'liq ekran, `intensity` tig'izlik). Accent rang varlarini o'qiydi → rolga moslashadi.
+- `GlassCard` — kursorni kuzatuvchi spotlight + gradient hairline + lift bo'lgan frosted karta. **Signature komponent.**
+- `ShimmerButton` — gradient + shine + glow + magnit asosiy CTA (eng muhim bitta amal uchun).
+- `Magnetic` — kursorga egiluvchi hover wrapper. `GradientText` — suriluvchi accent gradient sarlavha.
+- `SpotlightCard`, `CountUp`, `Reveal/Stagger/StaggerItem` (framer), `GsapReveal` (`data-reveal` bolalarini scroll'da stagger bilan ochadi — GSAP ScrollTrigger).
+- `Button` variantlari: `primary | glow | secondary | ghost | danger | subtle`. `Card` `glass` prop bilan frosted bo'ladi.
+
+**Qoidalar:**
+- Asosiy CTA → `ShimmerButton` yoki `Button variant="glow"`. Oddiy karta → `GlassCard` yoki `Card glass`.
+- Rang kerak bo'lsa **accent varlardan** (`text-accent`, `bg-accent-soft`, `rgb(var(--accent)/.x)`) — hex yozma, rolga moslashuv buziladi.
+- Animatsiya **ma'noli** bo'lsin (orientatsiya/holat), bezak uchun emas. `prefers-reduced-motion` globals.css'da hurmat qilinadi.
+- Signature easing: `cubic-bezier(0.16, 1, 0.3, 1)`.
 
 ## Konvensiyalar
 - Foydalanuvchiga ko'rinadigan barcha matn — **o'zbek tilida**.

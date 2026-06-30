@@ -15,11 +15,27 @@ export function Avatar({
   className,
   ring,
 }: {
-  user: Pick<User, "name" | "hue">;
+  user: Pick<User, "name" | "hue"> & { avatarUrl?: string };
   size?: keyof typeof sizes;
   className?: string;
   ring?: boolean;
 }) {
+  if (user.avatarUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={user.avatarUrl}
+        alt={user.name}
+        title={user.name}
+        className={cn(
+          "relative rounded-full object-cover shadow-sm select-none",
+          sizes[size],
+          ring && "ring-2 ring-surface",
+          className
+        )}
+      />
+    );
+  }
   return (
     <div
       className={cn(

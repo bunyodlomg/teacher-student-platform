@@ -3,6 +3,7 @@ import { connectDB } from "@/server/db";
 import { Group, User } from "@/server/models";
 import { sGroup } from "@/server/serialize";
 import { notify } from "@/server/notify";
+import { emitToUsers } from "@/server/io";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -57,6 +58,7 @@ export const PATCH = withAuth(
     // notify newly added students
     const after = group.studentIds.map((s) => s.toString());
     const added = after.filter((idStr) => !before.has(idStr));
+    const removed = [...before].filter((idStr) => !after.includes(idStr));
     await Promise.all(
       added.map((sid) =>
         notify({
@@ -68,6 +70,15 @@ export const PATCH = withAuth(
           link: `/student/groups/${group._id.toString()}`,
         })
       )
+    );
+
+    // Push a live refresh to everyone whose scope changed (added/removed
+    // students + the group's teacher) so their groups/feeds update without a
+    // manual reload, and their socket rejoins the right rooms.
+    emitToUsers(
+      [...added, ...removed, group.teacherId.toString()],
+      "state:refresh",
+      { groupId: group._id.toString() }
     );
 
     return json({ group: sGroup(group.toObject()) });

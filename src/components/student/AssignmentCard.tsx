@@ -41,7 +41,7 @@ export function AssignmentCard({
     >
       <Link
         href={`/student/assignments/${assignment.id}`}
-        className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-border bg-surface p-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-lift"
+        className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-border bg-surface p-4 shadow-card transition-all hover:-translate-y-0.5 hover:border-accent/30 hover:shadow-lift"
       >
         <span className="pointer-events-none absolute inset-y-0 left-0 w-1 origin-top scale-y-0 rounded-r-full bg-accent transition-transform duration-300 group-hover:scale-y-100" />
         <Monogram label={group?.subject ?? group?.name ?? "?"} size="lg" />

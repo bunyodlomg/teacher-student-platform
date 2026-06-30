@@ -5,11 +5,27 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const UZ_LOCALE = "uz-UZ";
+// Explicit Uzbek names — Intl's "uz-UZ" locale renders months as "M06" etc.,
+// which is confusing, so we format dates ourselves.
+const UZ_MONTHS = [
+  "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
+  "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr",
+];
+const UZ_MONTHS_SHORT = [
+  "Yan", "Fev", "Mar", "Apr", "May", "Iyn",
+  "Iyl", "Avg", "Sen", "Okt", "Noy", "Dek",
+];
+const UZ_WEEKDAYS = [
+  "Yakshanba", "Dushanba", "Seshanba", "Chorshanba",
+  "Payshanba", "Juma", "Shanba",
+];
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
 
 /** Relative time like "2 soat oldin", "3 kundan keyin" */
 export function relativeTime(iso: string): string {
-  const date = new Date(iso).getTime();
+  const d = new Date(iso);
+  const date = d.getTime();
   const now = Date.now();
   const diff = date - now;
   const abs = Math.abs(diff);
@@ -24,27 +40,26 @@ export function relativeTime(iso: string): string {
   if (abs < hour) return fmt(Math.round(abs / min), "daqiqa");
   if (abs < day) return fmt(Math.round(abs / hour), "soat");
   if (abs < 7 * day) return fmt(Math.round(abs / day), "kun");
-  return new Date(iso).toLocaleDateString(UZ_LOCALE, {
-    month: "short",
-    day: "numeric",
-  });
+  return `${d.getDate()}-${UZ_MONTHS_SHORT[d.getMonth()]}`;
 }
 
+/** e.g. "30-Iyun, 2026" */
 export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(UZ_LOCALE, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const d = new Date(iso);
+  return `${d.getDate()}-${UZ_MONTHS[d.getMonth()]}, ${d.getFullYear()}`;
+}
+
+/** e.g. "30-Iyun, Seshanba" */
+export function formatDateLong(iso: string | Date): string {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  return `${d.getDate()}-${UZ_MONTHS[d.getMonth()]}, ${UZ_WEEKDAYS[d.getDay()]}`;
 }
 
 export function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString(UZ_LOCALE, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const d = new Date(iso);
+  return `${d.getDate()}-${UZ_MONTHS_SHORT[d.getMonth()]}, ${d.getHours()}:${pad2(
+    d.getMinutes()
+  )}`;
 }
 
 /** Days until a due date (negative if overdue) */

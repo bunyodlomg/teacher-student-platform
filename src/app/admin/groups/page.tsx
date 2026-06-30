@@ -1,6 +1,7 @@
 "use client";
 
 import { PageHeader } from "@/components/app/PageHeader";
+import { ManageMembersModal } from "@/components/app/ManageMembersModal";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Textarea } from "@/components/ui/Field";
@@ -19,10 +20,8 @@ export default function AdminGroups() {
   const groups = useData((s) => s.groups);
   const assignments = useData((s) => s.assignments);
   const addGroup = useData((s) => s.addGroup);
-  const updateGroupMembers = useData((s) => s.updateGroupMembers);
 
   const teachers = users.filter((u) => u.role === "teacher");
-  const students = users.filter((u) => u.role === "student");
 
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -32,31 +31,8 @@ export default function AdminGroups() {
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
 
-  // member management
+  // member management (shared modal)
   const [editing, setEditing] = useState<Group | null>(null);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [savingMembers, setSavingMembers] = useState(false);
-
-  const openMembers = (g: Group) => {
-    setEditing(g);
-    setSelected(new Set(g.studentIds));
-  };
-
-  const toggleStudent = (id: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-
-  const saveMembers = async () => {
-    if (!editing) return;
-    setSavingMembers(true);
-    await updateGroupMembers(editing.id, [...selected]);
-    setSavingMembers(false);
-    setEditing(null);
-  };
 
   const create = async () => {
     if (!name.trim() || !subject.trim() || !teacherId || busy) return;
@@ -123,7 +99,7 @@ export default function AdminGroups() {
                 </span>
               </div>
               <button
-                onClick={() => openMembers(g)}
+                onClick={() => setEditing(g)}
                 className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-bg/40 px-3 py-2 text-[13px] font-medium text-muted transition-colors hover:border-accent/40 hover:text-ink"
               >
                 <Users className="h-4 w-4" /> O'quvchilarni boshqarish
@@ -189,65 +165,11 @@ export default function AdminGroups() {
         </div>
       </Modal>
 
-      <Modal
+      <ManageMembersModal
+        group={editing}
         open={!!editing}
         onClose={() => setEditing(null)}
-        title={editing ? `${editing.name} — o'quvchilar` : "O'quvchilar"}
-        description="Guruhga o'quvchilarni qo'shing yoki olib tashlang."
-        footer={
-          <>
-            <Button variant="ghost" size="sm" onClick={() => setEditing(null)}>
-              Bekor qilish
-            </Button>
-            <Button size="sm" onClick={saveMembers} disabled={savingMembers}>
-              {savingMembers ? "Saqlanmoqda…" : "Saqlash"}
-            </Button>
-          </>
-        }
-      >
-        <div className="max-h-[50vh] space-y-1 overflow-y-auto">
-          {students.length === 0 && (
-            <p className="py-6 text-center text-[13px] text-muted">
-              Hali o'quvchilar yo'q. Avval foydalanuvchilar bo'limidan qo'shing.
-            </p>
-          )}
-          {students.map((st) => {
-            const on = selected.has(st.id);
-            return (
-              <button
-                key={st.id}
-                onClick={() => toggleStudent(st.id)}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors",
-                  on
-                    ? "border-accent/40 bg-accent-soft"
-                    : "border-border hover:bg-elevated"
-                )}
-              >
-                <Avatar user={st} size="sm" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] font-semibold text-ink">
-                    {st.name}
-                  </span>
-                  <span className="block truncate font-mono text-[11px] text-faint">
-                    {st.email}
-                  </span>
-                </span>
-                <span
-                  className={cn(
-                    "grid h-5 w-5 place-items-center rounded-md border text-[11px]",
-                    on
-                      ? "border-accent bg-accent text-accent-ink"
-                      : "border-border text-transparent"
-                  )}
-                >
-                  ✓
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </Modal>
+      />
     </div>
   );
 }

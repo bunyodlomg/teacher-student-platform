@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bell,
+  CalendarDays,
   ClipboardCheck,
   Home,
   LayoutGrid,
@@ -15,7 +16,8 @@ import {
   ListTodo,
   LogOut,
   Menu,
-  Search,
+  Plus,
+  Settings,
   Users,
   X,
 } from "lucide-react";
@@ -28,6 +30,10 @@ import { Logo } from "../ui/Logo";
 import { Monogram } from "../ui/Monogram";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { NotificationsPanel } from "./NotificationsPanel";
+import { ProfileModal } from "./ProfileModal";
+import { GlobalSearch } from "./GlobalSearch";
+import { CreateGroupModal } from "./CreateGroupModal";
+import { Aurora } from "@/components/motion";
 
 interface NavItem {
   href: string;
@@ -48,11 +54,13 @@ function navFor(role: Role): NavItem[] {
       { href: "/teacher", label: "Umumiy", icon: Home },
       { href: "/teacher/review", label: "Tekshirish", icon: ClipboardCheck },
       { href: "/teacher/classes", label: "Guruhlar", icon: LayoutGrid },
+      { href: "/teacher/calendar", label: "Kalendar", icon: CalendarDays },
     ];
   }
   return [
     { href: "/student", label: "Bugun", icon: Home },
     { href: "/student/assignments", label: "Topshiriqlar", icon: ListTodo },
+    { href: "/student/calendar", label: "Kalendar", icon: CalendarDays },
     { href: "/student/progress", label: "Natijalar", icon: LineChart },
   ];
 }
@@ -87,6 +95,8 @@ export function AppShell({
 
   const [drawer, setDrawer] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
 
   // confirm session from the server (cookie-based)
   useEffect(() => {
@@ -119,8 +129,16 @@ export function AppShell({
 
   if (!hydrated || !user || sessionRole !== role) {
     return (
-      <div className="grid min-h-screen place-items-center bg-bg">
-        <Logo showWord={false} className="animate-pulse" />
+      <div
+        data-role={role}
+        className="grid min-h-screen place-items-center bg-bg"
+      >
+        <motion.div
+          animate={{ scale: [1, 1.08, 1], opacity: [0.7, 1, 0.7] }}
+          transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <Logo showWord={false} />
+        </motion.div>
       </div>
     );
   }
@@ -160,12 +178,12 @@ export function AppShell({
                   <>
                     <motion.span
                       layoutId={`nav-bg-${role}`}
-                      className="absolute inset-0 -z-10 rounded-xl bg-elevated"
+                      className="absolute inset-0 -z-10 rounded-xl border border-accent/20 bg-accent/10 shadow-[0_0_20px_-6px_rgb(var(--accent)/0.5)]"
                       transition={{ type: "spring", stiffness: 420, damping: 34 }}
                     />
                     <motion.span
                       layoutId={`nav-bar-${role}`}
-                      className="absolute -left-3 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-accent"
+                      className="absolute -left-3 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-accent shadow-[0_0_10px_rgb(var(--accent)/0.8)]"
                       transition={{ type: "spring", stiffness: 420, damping: 34 }}
                     />
                   </>
@@ -185,12 +203,22 @@ export function AppShell({
 
         {role !== "admin" && (
         <div>
-          <p className="mb-1 flex items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-faint">
-            Guruhlar
-            <span className="rounded-full bg-elevated px-1.5 text-[10px] font-medium text-muted">
-              {myGroups.length}
-            </span>
-          </p>
+          <div className="mb-1 flex items-center justify-between px-3">
+            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-faint">
+              Guruhlar
+              <span className="rounded-full bg-elevated px-1.5 text-[10px] font-medium text-muted">
+                {myGroups.length}
+              </span>
+            </p>
+            <button
+              onClick={() => setCreateGroupOpen(true)}
+              aria-label="Yangi guruh yaratish"
+              title="Yangi guruh"
+              className="grid h-6 w-6 place-items-center rounded-md text-faint transition-colors hover:bg-elevated hover:text-accent"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
           <div className="space-y-0.5">
             {myGroups.map((g) => {
               const href = `${base}/groups/${g.id}`;
@@ -222,12 +250,18 @@ export function AppShell({
       <div className="space-y-1 border-t border-border p-3">
         <div className="flex items-center gap-3 rounded-xl border border-border bg-elevated/40 px-2.5 py-2">
           <Avatar user={user} size="sm" />
-          <div className="min-w-0 flex-1">
+          <button
+            onClick={() => setProfileOpen(true)}
+            className="min-w-0 flex-1 text-left"
+          >
             <p className="truncate text-[13px] font-semibold text-ink">
               {user.name}
             </p>
             <p className="truncate text-[11px] text-faint">@{user.email}</p>
-          </div>
+          </button>
+          <IconButton label="Profil sozlamalari" onClick={() => setProfileOpen(true)}>
+            <Settings className="h-[18px] w-[18px]" />
+          </IconButton>
           <IconButton
             label="Chiqish"
             onClick={async () => {
@@ -244,9 +278,10 @@ export function AppShell({
   );
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div data-role={role} className="min-h-screen bg-bg">
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[264px] border-r border-border bg-surface lg:block">
+      <aside className="glass fixed inset-y-0 left-0 z-30 hidden w-[264px] overflow-hidden border-r border-border lg:block">
+        <Aurora full intensity={0.5} className="opacity-70" />
         {SidebarBody}
       </aside>
 
@@ -266,8 +301,9 @@ export function AppShell({
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", stiffness: 360, damping: 34 }}
-              className="absolute inset-y-0 left-0 w-[280px] border-r border-border bg-surface"
+              className="glass-strong absolute inset-y-0 left-0 w-[280px] overflow-hidden border-r border-border"
             >
+              <Aurora full intensity={0.5} className="opacity-70" />
               <div className="absolute right-3 top-4">
                 <IconButton label="Yopish" onClick={() => setDrawer(false)}>
                   <X className="h-[18px] w-[18px]" />
@@ -291,16 +327,7 @@ export function AppShell({
             <Menu className="h-5 w-5" />
           </IconButton>
 
-          <div className="group relative hidden max-w-md flex-1 items-center sm:flex">
-            <Search className="pointer-events-none absolute left-3.5 h-4 w-4 text-faint transition-colors group-focus-within:text-accent" />
-            <input
-              placeholder="Darslar, topshiriqlar, odamlarni qidiring…"
-              className="h-10 w-full rounded-xl border border-border bg-bg/60 pl-10 pr-14 text-sm text-ink placeholder:text-faint focus:border-accent/40 focus:bg-surface focus:outline-none focus:ring-4 focus:ring-accent/10"
-            />
-            <kbd className="pointer-events-none absolute right-2.5 hidden items-center gap-0.5 rounded-md border border-border bg-surface px-1.5 py-0.5 text-[10px] font-medium text-faint md:flex">
-              ⌘K
-            </kbd>
-          </div>
+          <GlobalSearch />
 
           <div className="flex flex-1 items-center justify-end gap-1 sm:flex-none">
             <div className="relative">
@@ -321,7 +348,11 @@ export function AppShell({
               />
             </div>
             <ThemeToggle />
-            <div className="ml-1.5 hidden items-center gap-2.5 border-l border-border pl-2.5 sm:flex">
+            <button
+              onClick={() => setProfileOpen(true)}
+              title="Profil sozlamalari"
+              className="ml-1.5 hidden items-center gap-2.5 border-l border-border pl-2.5 transition-opacity hover:opacity-80 sm:flex"
+            >
               <div className="text-right leading-tight">
                 <p className="text-[12px] font-semibold text-ink">
                   {user.name}
@@ -329,7 +360,7 @@ export function AppShell({
                 <p className="text-[10px] text-faint">@{user.email}</p>
               </div>
               <Avatar user={user} size="sm" />
-            </div>
+            </button>
           </div>
         </header>
 
@@ -337,6 +368,12 @@ export function AppShell({
           {children}
         </main>
       </div>
+
+      <ProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} />
+      <CreateGroupModal
+        open={createGroupOpen}
+        onClose={() => setCreateGroupOpen(false)}
+      />
     </div>
   );
 }
