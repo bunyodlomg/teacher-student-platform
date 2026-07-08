@@ -1,0 +1,28 @@
+# Cambridge Learn — systemd service
+# Joylashuv (VPS): /etc/systemd/system/cambridge-learn.service
+# Yoqish:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now cambridge-learn
+#
+# WorkingDirectory va User ni o'z sozlamangizga moslang.
+
+[Unit]
+Description=Cambridge Learn (Next.js + Socket.IO)
+After=network.target mongod.service
+Wants=mongod.service
+
+[Service]
+Type=simple
+User=deploy
+WorkingDirectory=/var/www/cambridge-learn
+Environment=NODE_ENV=production
+# .env fayl shu papkada bo'lsin; src/server/env uni o'qiydi
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+# Loglar journald ga tushadi: journalctl -u cambridge-learn -f
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
