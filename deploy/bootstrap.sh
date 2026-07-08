@@ -89,8 +89,10 @@ if ! id "$APP_USER" >/dev/null 2>&1; then
   adduser --disabled-password --gecos "" "$APP_USER"
   usermod -aG sudo "$APP_USER"
 fi
-mkdir -p "$(dirname "$APP_DIR")"
-ok "Foydalanuvchi tayyor"
+# APP_DIR va uning ota-papkasi deploy'ники bo'lsin — aks holda clone "Permission denied" beradi
+mkdir -p "$APP_DIR"
+chown -R "$APP_USER":"$APP_USER" "$(dirname "$APP_DIR")"
+ok "Foydalanuvchi va papka tayyor"
 
 # =====================================================================================
 log "6/10 · Loyiha GitHub'dan olinmoqda"
