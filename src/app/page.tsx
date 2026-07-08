@@ -30,22 +30,22 @@ const features = [
   {
     icon: BookOpen,
     title: "Dars lentasi",
-    desc: "Matn, video, audio va fayllar bilan tartibli dars oqimi. O'quvchilar izoh va reaksiya qoldiradi.",
+    desc: "Matn, video, audio va fayl joylang. O'quvchilar izoh va reaksiya qoldiradi.",
   },
   {
     icon: ClipboardCheck,
-    title: "Topshiriq va baholash",
-    desc: "Muddatli topshiriqlar bering, ishlarni bir joyda ko'ring, ball va izoh bilan baholang.",
+    title: "Topshiriq va baho",
+    desc: "Topshiriq bering, ishlarni bir joyda ko'ring, ball va izoh yozing.",
   },
   {
     icon: BellRing,
-    title: "Real vaqtli bildirishnoma",
-    desc: "Yangi dars, topshiriq yoki baho — hamma narsa darhol tegishli odamga yetib boradi.",
+    title: "Tezkor xabar",
+    desc: "Yangi dars, topshiriq yoki baho — darhol xabar boradi.",
   },
   {
     icon: LineChart,
-    title: "Natijalar va progress",
-    desc: "Har bir o'quvchi o'z o'rtacha bahosi, bajarilgan ishlari va kunlik faolligini kuzatadi.",
+    title: "Natija va progress",
+    desc: "Har bir o'quvchi o'z bahosi va bajargan ishlarini ko'radi.",
   },
 ];
 
@@ -116,7 +116,7 @@ export default function Landing() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
             </span>
-            Zamonaviy o'quv platformasi
+            Maktab o'quv platformasi
           </motion.span>
 
           <motion.h1
@@ -126,7 +126,7 @@ export default function Landing() {
             className="mt-6 font-display text-[40px] font-medium leading-[1.05] tracking-[-0.02em] text-ink text-balance sm:text-[64px]"
           >
             O'qituvchi va o'quvchilar uchun{" "}
-            <GradientText>yagona makon</GradientText>
+            <GradientText>bitta joy</GradientText>
           </motion.h1>
 
           <motion.p
@@ -135,8 +135,8 @@ export default function Landing() {
             transition={{ ease, delay: 0.12 }}
             className="mx-auto mt-6 max-w-xl text-[17px] leading-relaxed text-muted text-pretty"
           >
-            Darslar, topshiriqlar, baholash va bildirishnomalar — barchasi bitta
-            sodda va tezkor platformada. Ortiqcha murakkablik yo'q.
+            Darslar, topshiriqlar, baholar va xabarlar — hammasi bitta joyda.
+            Oddiy va tez.
           </motion.p>
 
           <motion.div
@@ -155,7 +155,7 @@ export default function Landing() {
               href="#imkoniyatlar"
               className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface/50 px-6 text-[15px] font-medium text-ink backdrop-blur transition-colors hover:bg-elevated sm:w-auto"
             >
-              Imkoniyatlar bilan tanishish
+              Imkoniyatlarni ko'rish
             </a>
           </motion.div>
         </div>
@@ -175,7 +175,7 @@ export default function Landing() {
                 <span className="h-2.5 w-2.5 rounded-full bg-success/60" />
               </div>
               <div className="mx-auto font-mono text-[11px] tracking-wide text-faint">
-                cambridge-learn.uz
+                learn.cambridgeschool.uz
               </div>
             </div>
             <div className="grid gap-4 p-6 sm:grid-cols-3">
@@ -219,7 +219,7 @@ export default function Landing() {
         <div className="max-w-2xl">
           <p className="eyebrow">Imkoniyatlar</p>
           <h2 className="mt-3 font-display text-[30px] font-medium leading-tight tracking-[-0.01em] text-ink sm:text-[40px]">
-            O'qitish uchun kerak bo'lgan hamma narsa
+            O'qitish uchun kerakli hamma narsa
           </h2>
         </div>
         <GsapReveal className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -247,7 +247,7 @@ export default function Landing() {
         <div className="max-w-2xl">
           <p className="eyebrow">Har bir rol uchun</p>
           <h2 className="mt-3 font-display text-[30px] font-medium leading-tight tracking-[-0.01em] text-ink sm:text-[40px]">
-            Har kim o'z ishini sodda bajaradi
+            Har kim o'z ishini oson qiladi
           </h2>
         </div>
         <GsapReveal className="mt-10 grid gap-4 lg:grid-cols-3">
@@ -285,10 +285,10 @@ export default function Landing() {
         <div className="border-gradient relative overflow-hidden rounded-3xl p-10 text-center shadow-lift sm:p-16">
           <Aurora full intensity={0.8} />
           <h2 className="relative mx-auto max-w-2xl font-display text-[28px] font-medium leading-tight tracking-[-0.01em] text-ink text-balance sm:text-[38px]">
-            Bugundan o'qitishni <GradientText>soddalashtiring</GradientText>
+            Bugundan ishlashni <GradientText>boshlang</GradientText>
           </h2>
           <p className="relative mx-auto mt-4 max-w-md text-[15px] leading-relaxed text-muted">
-            Hisobingizga kiring va guruhingiz bilan ishlashni boshlang.
+            Kiring va guruhingiz bilan ishlang.
           </p>
           <div className="relative mt-8 flex justify-center">
             <Link href="/login">
