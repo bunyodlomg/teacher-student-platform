@@ -145,11 +145,11 @@ export default function LoginPage() {
           </div>
           <div>
             <p className="font-display text-[40px] font-medium leading-[1.15] tracking-[-0.01em] text-ink text-balance">
-              “O'rganish <span className="italic text-gradient">sokin</span>{" "}
-              bo'lganda, chuqurroq bo'ladi.”
+              Darslar, topshiriqlar va baholar —{" "}
+              <span className="text-gradient">bir joyda</span>.
             </p>
             <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
-              Cambridge Learn · IELTS &amp; General English
+              Cambridge School · O'quv platformasi
             </p>
           </div>
           <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
