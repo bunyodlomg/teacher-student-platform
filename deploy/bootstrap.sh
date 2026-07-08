@@ -116,7 +116,8 @@ if [[ -f "$APP_DIR/.env" ]]; then
 else
   JWT_SECRET="$(openssl rand -hex 48)"
   if [[ -z "$ADMIN_PASSWORD" ]]; then
-    ADMIN_PASSWORD="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16)"
+    # openssl rand -hex 8 = 16 ta belgi, pipe yo'q (SIGPIPE + pipefail muammosidan xoli)
+    ADMIN_PASSWORD="$(openssl rand -hex 8)"
     GEN_PW=1
   fi
   cat > "$APP_DIR/.env" <<ENV
