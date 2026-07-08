@@ -10,6 +10,36 @@ Quyidagi joy-egallovchilarni almashtiring:
 
 ---
 
+## ⚡ Tez yo'l — bitta buyruq bilan avtomatik (tavsiya etiladi)
+
+Yangi Ubuntu VPS'da root sifatida (public repo uchun). Skript hammasini qiladi:
+paketlar, swap, Node, MongoDB, clone, `.env` (JWT avtomatik), build, systemd, Nginx, firewall.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bunyodlomg/teacher-student-platform/main/deploy/bootstrap.sh -o bootstrap.sh
+sudo bash bootstrap.sh
+```
+
+DNS allaqachon tayyor bo'lsa, SSL ham avtomatik o'rnatiladi — email bering:
+```bash
+sudo CERTBOT_EMAIL="siz@mail.uz" bash bootstrap.sh
+```
+
+Admin parolni o'zingiz belgilamoqchi bo'lsangiz:
+```bash
+sudo ADMIN_PASSWORD="KuchliParol123" CERTBOT_EMAIL="siz@mail.uz" bash bootstrap.sh
+```
+
+> Skript **idempotent** — qayta ishga tushirsangiz buzilmaydi (`.env` saqlanadi).
+> Yakunida server IP va (avtomatik yaratilgan bo'lsa) admin parol chiqadi.
+> Repo **private** bo'lsa — skript deploy key qanday qo'shishni ko'rsatadi.
+
+Keyingi yangilanishlar: `cd /var/www/cambridge-learn && ./deploy/update.sh`
+
+Pastdagi qo'lda bosqichlar — nima bo'layotganini tushunish yoki muammoni hal qilish uchun.
+
+---
+
 ## 0. VPS'ga ulanish
 
 ```bash
