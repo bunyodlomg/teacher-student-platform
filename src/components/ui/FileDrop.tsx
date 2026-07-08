@@ -24,7 +24,7 @@ import { VoiceMessage } from "@/components/media/VoiceMessage";
 export function FileDrop({
   value,
   onChange,
-  hint = "PDF, rasm, video, audio, hujjat — 25 MB gacha",
+  hint = "PDF, rasm, video, audio, hujjat — 100 MB gacha",
 }: {
   value: Attachment[];
   onChange: (next: Attachment[]) => void;

@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_BYTES = 25 * 1024 * 1024; // 25 MB
+const MAX_BYTES = 100 * 1024 * 1024; // 100 MB
 
 // Allowlist — only known-safe media/document types. Anything that can run in
 // the browser origin (html, svg, js, exe, …) is rejected to avoid stored XSS /
@@ -56,7 +56,7 @@ export const POST = withAuth(async (req: Request) => {
   const file = form.get("file");
   if (!(file instanceof File)) return err("Fayl topilmadi");
   if (file.size === 0) return err("Fayl bo'sh");
-  if (file.size > MAX_BYTES) return err("Fayl 25 MB dan katta bo'lmasligi kerak");
+  if (file.size > MAX_BYTES) return err("Fayl 100 MB dan katta bo'lmasligi kerak");
 
   const ext = (file.name.split(".").pop() || "")
     .toLowerCase()
