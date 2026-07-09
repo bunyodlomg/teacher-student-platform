@@ -5,6 +5,7 @@ import next from "next";
 import { Server as IOServer } from "socket.io";
 import { parse as parseCookie } from "cookie";
 import { setIO, room } from "./src/server/io";
+import { serveUpload } from "./src/server/static";
 import { getUserFromToken, COOKIE_NAME } from "./src/server/auth";
 import { connectDB } from "./src/server/db";
 import { Group } from "./src/server/models";
@@ -25,7 +26,15 @@ app.prepare().then(async () => {
     process.exit(1);
   }
 
-  const server = createServer((req, res) => handle(req, res));
+  const server = createServer((req, res) => {
+    // Yuklangan fayllarni diskdan xizmat qilamiz — Next production build'dan
+    // keyin public/uploads'ga qo'shilgan fayllarni bermaydi (404).
+    if (req.url && req.url.startsWith("/uploads/")) {
+      void serveUpload(req, res);
+      return;
+    }
+    handle(req, res);
+  });
 
   const io = new IOServer(server, {
     path: "/socket.io",
