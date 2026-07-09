@@ -11,7 +11,9 @@ const PostSchema = new Schema(
       required: true,
     },
     title: { type: String, required: true },
-    body: { type: String, required: true },
+    // Matn ixtiyoriy — e'lon/dars faqat sarlavha bilan ham bo'lishi mumkin.
+    // Mongoose'da `required: true` bo'sh satrni ('') rad etadi, shu sabab default bilan ixtiyoriy.
+    body: { type: String, default: "" },
     tags: [{ type: String }],
     pinned: { type: Boolean, default: false },
     assignmentId: { type: Schema.Types.ObjectId, ref: "Assignment" },

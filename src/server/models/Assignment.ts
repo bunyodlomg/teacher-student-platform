@@ -5,7 +5,8 @@ const AssignmentSchema = new Schema(
   {
     groupId: { type: Schema.Types.ObjectId, ref: "Group", required: true, index: true },
     title: { type: String, required: true },
-    description: { type: String, required: true },
+    // Ko'rsatma ixtiyoriy — Mongoose'da `required` bo'sh satrni ('') rad etadi.
+    description: { type: String, default: "" },
     dueDate: { type: Date, required: true },
     points: { type: Number, default: 100 },
     attachments: [AttachmentSchema],
