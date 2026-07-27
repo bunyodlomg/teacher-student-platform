@@ -5,14 +5,38 @@ import {
   AppNotification,
   Assignment,
   Attachment,
+  ExamQuestion,
   Group,
   Post,
   Role,
   Submission,
   SubmissionStatus,
+  Test,
+  TestAttempt,
   User,
 } from "@/lib/types";
 import { getSocket } from "@/lib/socket";
+
+export interface NewTestQuestion {
+  type: "single" | "boolean" | "short";
+  text: string;
+  imageUrl?: string;
+  options?: { text: string }[];
+  correctIndex?: number;
+  correctText?: string;
+  points?: number;
+}
+export interface NewTestInput {
+  groupId: string;
+  title: string;
+  subject?: string;
+  description?: string;
+  durationMin: number;
+  shuffleQuestions?: boolean;
+  shuffleOptions?: boolean;
+  maxViolations?: number;
+  questions: NewTestQuestion[];
+}
 
 interface NewPostInput {
   groupId: string;
@@ -46,6 +70,8 @@ interface DataState {
   assignments: Assignment[];
   submissions: Submission[];
   notifications: AppNotification[];
+  tests: Test[];
+  attempts: TestAttempt[];
 
   loaded: boolean;
   loading: boolean;
@@ -69,6 +95,8 @@ interface DataState {
   deletePost: (postId: string) => Promise<{ ok: boolean; error?: string }>;
   toggleReaction: (postId: string, emoji: string, userId: string) => Promise<void>;
   addComment: (postId: string, authorId: string, body: string) => Promise<void>;
+  /** Register a unique view once the current user has seen a post. */
+  viewPost: (postId: string) => void;
 
   // ---- assignments ----
   createAssignment: (input: NewAssignmentInput) => Promise<void>;
@@ -87,6 +115,33 @@ interface DataState {
       feedback?: string;
     }
   ) => Promise<void>;
+
+  // ---- tests (DTM) ----
+  createTest: (
+    input: NewTestInput
+  ) => Promise<{ ok: boolean; testId?: string; error?: string }>;
+  setTestStatus: (
+    testId: string,
+    status: Test["status"]
+  ) => Promise<{ ok: boolean; error?: string }>;
+  deleteTest: (testId: string) => Promise<{ ok: boolean; error?: string }>;
+  startAttempt: (testId: string) => Promise<{
+    ok: boolean;
+    error?: string;
+    questions?: ExamQuestion[];
+    attempt?: TestAttempt;
+  }>;
+  saveAnswer: (
+    testId: string,
+    questionId: string,
+    data: { optionId?: string; text?: string }
+  ) => void;
+  submitAttempt: (
+    testId: string,
+    answers: { questionId: string; optionId?: string; text?: string }[],
+    violations: number
+  ) => Promise<{ ok: boolean; error?: string; attempt?: TestAttempt }>;
+  reportViolation: (testId: string) => void;
 
   // ---- notifications ----
   markNotificationRead: (id: string) => Promise<void>;
@@ -141,6 +196,8 @@ const upsertById = <T extends { id: string }>(list: T[], item: T): T[] => {
 };
 
 let wired = false;
+// posts already reported as viewed this session — avoids re-hitting the API
+const seenViews = new Set<string>();
 
 export const useData = create<DataState>()((set, get) => ({
   users: [],
@@ -149,6 +206,8 @@ export const useData = create<DataState>()((set, get) => ({
   assignments: [],
   submissions: [],
   notifications: [],
+  tests: [],
+  attempts: [],
   loaded: false,
   loading: false,
 
@@ -169,6 +228,8 @@ export const useData = create<DataState>()((set, get) => ({
         assignments: s.assignments ?? [],
         submissions: s.submissions ?? [],
         notifications: s.notifications ?? [],
+        tests: s.tests ?? [],
+        attempts: s.attempts ?? [],
         loaded: true,
         loading: false,
       });
@@ -201,6 +262,27 @@ export const useData = create<DataState>()((set, get) => ({
         socket.on("notification:new", (n: AppNotification) =>
           set((st) => ({ notifications: upsertById(st.notifications, n) }))
         );
+        // Test ochildi/yopildi. Kelayotgan meta savolsiz — mavjud savollarni
+        // (o'qituvchi qo'lidagi) yo'qotmaslik uchun eskisi bilan birlashtiramiz.
+        socket.on("test:updated", (t: Test) =>
+          set((st) => {
+            const prev = st.tests.find((x) => x.id === t.id);
+            const merged =
+              prev && (!t.questions || t.questions.length === 0)
+                ? { ...t, questions: prev.questions, questionCount: prev.questionCount }
+                : t;
+            return { tests: upsertById(st.tests, merged) };
+          })
+        );
+        socket.on("test:deleted", (payload: { id: string }) =>
+          set((st) => ({
+            tests: st.tests.filter((t) => t.id !== payload.id),
+            attempts: st.attempts.filter((a) => a.testId !== payload.id),
+          }))
+        );
+        socket.on("test:attempt-updated", (a: TestAttempt) =>
+          set((st) => ({ attempts: upsertById(st.attempts, a) }))
+        );
         // Group membership changed elsewhere (admin added/removed me, or
         // changed a roster). Rejoin socket rooms with fresh membership and
         // reload the scoped state so new groups/feeds appear immediately.
@@ -216,7 +298,8 @@ export const useData = create<DataState>()((set, get) => ({
     }
   },
 
-  clear: () =>
+  clear: () => {
+    seenViews.clear();
     set({
       users: [],
       groups: [],
@@ -224,8 +307,11 @@ export const useData = create<DataState>()((set, get) => ({
       assignments: [],
       submissions: [],
       notifications: [],
+      tests: [],
+      attempts: [],
       loaded: false,
-    }),
+    });
+  },
 
   addPost: async (input) => {
     const { ok, data } = await postJSON("/api/posts", {
@@ -330,6 +416,24 @@ export const useData = create<DataState>()((set, get) => ({
       set((st) => ({ posts: upsertById(st.posts, data.post) }));
   },
 
+  viewPost: (postId) => {
+    if (seenViews.has(postId)) return;
+    seenViews.add(postId);
+    postJSON(`/api/posts/${postId}/view`)
+      .then(({ ok, data }) => {
+        if (ok && typeof data.viewCount === "number") {
+          set((st) => ({
+            posts: st.posts.map((p) =>
+              p.id === postId ? { ...p, viewCount: data.viewCount } : p
+            ),
+          }));
+        } else {
+          seenViews.delete(postId); // allow a retry if it failed
+        }
+      })
+      .catch(() => seenViews.delete(postId));
+  },
+
   createAssignment: async (input) => {
     const { ok, data } = await postJSON("/api/assignments", {
       groupId: input.groupId,
@@ -372,6 +476,96 @@ export const useData = create<DataState>()((set, get) => ({
       set((st) => ({
         submissions: upsertById(st.submissions, data.submission),
       }));
+  },
+
+  createTest: async (input) => {
+    const { ok, data } = await postJSON("/api/tests", input);
+    if (ok && data.test) {
+      set((st) => ({ tests: upsertById(st.tests, data.test) }));
+      return { ok: true, testId: data.test.id };
+    }
+    return { ok: false, error: data?.error || "Yaratishda xatolik" };
+  },
+
+  setTestStatus: async (testId, status) => {
+    try {
+      const res = await fetch(`/api/tests/${testId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { ok: false, error: data?.error || "Xatolik" };
+      if (data.test) set((st) => ({ tests: upsertById(st.tests, data.test) }));
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Tarmoq xatosi" };
+    }
+  },
+
+  deleteTest: async (testId) => {
+    try {
+      const res = await fetch(`/api/tests/${testId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { ok: false, error: data?.error || "Xatolik" };
+      set((st) => ({
+        tests: st.tests.filter((t) => t.id !== testId),
+        attempts: st.attempts.filter((a) => a.testId !== testId),
+      }));
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Tarmoq xatosi" };
+    }
+  },
+
+  startAttempt: async (testId) => {
+    const { ok, data } = await postJSON(`/api/tests/${testId}/start`);
+    if (ok && data.attempt) {
+      set((st) => ({ attempts: upsertById(st.attempts, data.attempt) }));
+      return { ok: true, attempt: data.attempt, questions: data.questions };
+    }
+    return { ok: false, error: data?.error || "Boshlab bo'lmadi" };
+  },
+
+  saveAnswer: (testId, questionId, d) => {
+    // fire-and-forget autosave
+    postJSON(`/api/tests/${testId}/answer`, {
+      questionId,
+      optionId: d.optionId,
+      text: d.text,
+    }).catch(() => {});
+  },
+
+  submitAttempt: async (testId, answers, violations) => {
+    const { ok, data } = await postJSON(`/api/tests/${testId}/submit`, {
+      answers,
+      violations,
+    });
+    if (ok && data.attempt) {
+      set((st) => ({ attempts: upsertById(st.attempts, data.attempt) }));
+      return { ok: true, attempt: data.attempt };
+    }
+    return { ok: false, error: data?.error || "Topshirishda xatolik" };
+  },
+
+  reportViolation: (testId) => {
+    postJSON(`/api/tests/${testId}/violation`)
+      .then(({ ok, data }) => {
+        if (ok && typeof data.violations === "number") {
+          set((st) => ({
+            attempts: st.attempts.map((a) =>
+              a.testId === testId && a.status === "in_progress"
+                ? { ...a, violations: data.violations }
+                : a
+            ),
+          }));
+        }
+      })
+      .catch(() => {});
   },
 
   markNotificationRead: async (id) => {

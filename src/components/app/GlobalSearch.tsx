@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { htmlToText } from "@/lib/sanitize";
 import { useData } from "@/store/data";
 import { useSession } from "@/store/session";
 import { AnimatePresence, motion } from "framer-motion";
@@ -50,7 +51,9 @@ export function GlobalSearch() {
     if (t.length < 1) return null;
     const has = (s?: string) => (s ?? "").toLowerCase().includes(t);
     return {
-      lessons: posts.filter((p) => has(p.title) || has(p.body)).slice(0, 5),
+      lessons: posts
+        .filter((p) => has(p.title) || has(htmlToText(p.body)))
+        .slice(0, 5),
       asg: assignments
         .filter((a) => has(a.title) || has(a.description))
         .slice(0, 5),

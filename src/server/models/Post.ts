@@ -20,6 +20,8 @@ const PostSchema = new Schema(
     attachments: [AttachmentSchema],
     reactions: [ReactionSchema],
     comments: [CommentSchema],
+    // unique viewers — one entry per user, so a view is only ever counted once
+    views: [{ type: Schema.Types.ObjectId, ref: "User" }],
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

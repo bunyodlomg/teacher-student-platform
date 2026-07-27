@@ -5,6 +5,8 @@ import {
   Role,
   Submission,
   SubmissionStatus,
+  Test,
+  TestAttempt,
   User,
 } from "./types";
 import { daysUntil } from "./utils";
@@ -17,6 +19,42 @@ export const getGroup = (groups: Group[], id: string) =>
 
 export const getAssignment = (assignments: Assignment[], id: string) =>
   assignments.find((a) => a.id === id);
+
+export const getTest = (tests: Test[], id: string) =>
+  tests.find((t) => t.id === id);
+
+/** Tests belonging to a teacher's groups (their own tests). */
+export function testsForTeacher(
+  tests: Test[],
+  groups: Group[],
+  teacherId: string
+): Test[] {
+  const ids = new Set(groupsForUser(groups, teacherId, "teacher").map((g) => g.id));
+  return tests
+    .filter((t) => ids.has(t.groupId))
+    .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+}
+
+/** Open/closed tests visible to a student across their groups. */
+export function testsForStudent(
+  tests: Test[],
+  groups: Group[],
+  studentId: string
+): Test[] {
+  const ids = new Set(groupsForUser(groups, studentId, "student").map((g) => g.id));
+  return tests
+    .filter((t) => ids.has(t.groupId) && t.status !== "draft")
+    .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+}
+
+export const attemptFor = (
+  attempts: TestAttempt[],
+  testId: string,
+  studentId: string
+) => attempts.find((a) => a.testId === testId && a.studentId === studentId);
+
+export const attemptsForTest = (attempts: TestAttempt[], testId: string) =>
+  attempts.filter((a) => a.testId === testId);
 
 export function groupsForUser(
   groups: Group[],

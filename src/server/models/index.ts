@@ -12,3 +12,7 @@ export { Notification } from "./Notification";
 export type { NotificationDoc } from "./Notification";
 export { Announcement } from "./Announcement";
 export type { AnnouncementDoc } from "./Announcement";
+export { Test } from "./Test";
+export type { TestDoc } from "./Test";
+export { TestAttempt } from "./TestAttempt";
+export type { TestAttemptDoc } from "./TestAttempt";

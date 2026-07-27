@@ -11,29 +11,48 @@ import {
   UploadCloud,
   X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import {
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { attachmentMeta } from "./Attachment";
 import { VoiceRecorder } from "@/components/media/VoiceRecorder";
 import { VoiceMessage } from "@/components/media/VoiceMessage";
+import { uploadAttachment } from "@/lib/upload";
+
+export type FileDropHandle = {
+  /** Upload + append files programmatically (e.g. from a modal-wide drop). */
+  addFiles: (files: FileList | File[]) => void;
+};
 
 /**
  * Drag-and-drop + click-to-pick file uploader. Each dropped file is POSTed to
  * /api/upload and the returned Attachment is appended. Controlled via
- * `value` / `onChange`.
+ * `value` / `onChange`. Exposes an imperative `addFiles` handle so a parent
+ * (e.g. the composer modal) can funnel files dropped anywhere on the dialog
+ * through the same upload + progress UI.
  */
-export function FileDrop({
-  value,
-  onChange,
-  hint = "PDF, rasm, video, audio, hujjat — 100 MB gacha",
-}: {
-  value: Attachment[];
-  onChange: (next: Attachment[]) => void;
-  hint?: string;
-}) {
+export const FileDrop = forwardRef<
+  FileDropHandle,
+  {
+    value: Attachment[];
+    onChange: (next: Attachment[]) => void;
+    hint?: string;
+  }
+>(function FileDrop(
+  { value, onChange, hint = "PDF, rasm, video, audio, hujjat — 100 MB gacha" },
+  ref
+) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(0); // count of in-flight uploads
   const [error, setError] = useState("");
+
+  // keep a live ref to value so async appends don't clobber each other
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
   const upload = async (files: FileList | File[]) => {
     const list = Array.from(files);
@@ -41,27 +60,17 @@ export function FileDrop({
     setError("");
     setBusy((b) => b + list.length);
     for (const file of list) {
-      try {
-        const fd = new FormData();
-        fd.append("file", file);
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          credentials: "include",
-          body: fd,
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.attachment) {
-          onChange([...value, data.attachment as Attachment]);
-        } else {
-          setError(data?.error || `"${file.name}" yuklanmadi`);
-        }
-      } catch {
-        setError(`"${file.name}" yuklanmadi`);
-      } finally {
-        setBusy((b) => b - 1);
+      const { attachment, error } = await uploadAttachment(file);
+      if (attachment) {
+        onChange([...valueRef.current, attachment]);
+      } else {
+        setError(error || `"${file.name}" yuklanmadi`);
       }
+      setBusy((b) => b - 1);
     }
   };
+
+  useImperativeHandle(ref, () => ({ addFiles: upload }));
 
   const remove = (id: string) => onChange(value.filter((a) => a.id !== id));
 
@@ -115,6 +124,7 @@ export function FileDrop({
         onDragLeave={() => setDragging(false)}
         onDrop={(e) => {
           e.preventDefault();
+          e.stopPropagation(); // don't double-fire the modal-wide drop
           setDragging(false);
           if (e.dataTransfer.files?.length) upload(e.dataTransfer.files);
         }}
@@ -254,4 +264,4 @@ export function FileDrop({
       )}
     </div>
   );
-}
+});

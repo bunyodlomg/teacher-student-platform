@@ -10,6 +10,7 @@ import {
   Bell,
   CalendarDays,
   ClipboardCheck,
+  FileCheck2,
   Home,
   LayoutGrid,
   LineChart,
@@ -33,6 +34,7 @@ import { NotificationsPanel } from "./NotificationsPanel";
 import { ProfileModal } from "./ProfileModal";
 import { GlobalSearch } from "./GlobalSearch";
 import { CreateGroupModal } from "./CreateGroupModal";
+import { Toaster } from "../ui/Toaster";
 import { Aurora } from "@/components/motion";
 
 interface NavItem {
@@ -53,6 +55,7 @@ function navFor(role: Role): NavItem[] {
     return [
       { href: "/teacher", label: "Umumiy", icon: Home },
       { href: "/teacher/review", label: "Tekshirish", icon: ClipboardCheck },
+      { href: "/teacher/tests", label: "Testlar", icon: FileCheck2 },
       { href: "/teacher/classes", label: "Guruhlar", icon: LayoutGrid },
       { href: "/teacher/calendar", label: "Kalendar", icon: CalendarDays },
     ];
@@ -60,6 +63,7 @@ function navFor(role: Role): NavItem[] {
   return [
     { href: "/student", label: "Bugun", icon: Home },
     { href: "/student/assignments", label: "Topshiriqlar", icon: ListTodo },
+    { href: "/student/tests", label: "Testlar", icon: FileCheck2 },
     { href: "/student/calendar", label: "Kalendar", icon: CalendarDays },
     { href: "/student/progress", label: "Natijalar", icon: LineChart },
   ];
@@ -374,6 +378,7 @@ export function AppShell({
         open={createGroupOpen}
         onClose={() => setCreateGroupOpen(false)}
       />
+      <Toaster />
     </div>
   );
 }

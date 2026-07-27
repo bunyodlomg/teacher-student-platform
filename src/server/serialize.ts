@@ -7,6 +7,8 @@ import type {
   SubmissionDoc,
   NotificationDoc,
   AnnouncementDoc,
+  TestDoc,
+  TestAttemptDoc,
 } from "./models";
 import type {
   AppNotification,
@@ -15,7 +17,10 @@ import type {
   Comment,
   Group,
   Post,
+  Question,
   Submission,
+  Test,
+  TestAttempt,
   User,
 } from "@/lib/types";
 
@@ -108,6 +113,7 @@ export function sPost(p: PostDoc & { createdAt: Date }): Post {
     title: p.title,
     body: p.body,
     createdAt: iso(p.createdAt)!,
+    viewCount: (p.views as unknown[] | undefined)?.length ?? 0,
     tags: p.tags && p.tags.length ? [...p.tags] : undefined,
     pinned: p.pinned,
     assignmentId: p.assignmentId ? id(p.assignmentId) : undefined,
@@ -192,5 +198,89 @@ export function sAnnouncement(
     body: a.body,
     pinned: a.pinned,
     createdAt: iso(a.createdAt)!,
+  };
+}
+
+interface RawOption {
+  _id?: Types.ObjectId | string;
+  text: string;
+}
+interface RawQuestion {
+  _id?: Types.ObjectId | string;
+  type: Question["type"];
+  text: string;
+  imageUrl?: string;
+  options?: RawOption[];
+  correctOptionId?: string;
+  correctText?: string;
+  points?: number;
+}
+
+function sQuestion(q: RawQuestion, includeAnswer: boolean): Question {
+  return {
+    id: id(q._id),
+    type: q.type,
+    text: q.text,
+    imageUrl: q.imageUrl ?? undefined,
+    options: (q.options ?? []).map((o) => ({ id: id(o._id), text: o.text })),
+    correctOptionId: includeAnswer ? q.correctOptionId ?? undefined : undefined,
+    correctText: includeAnswer ? q.correctText ?? undefined : undefined,
+    points: q.points ?? 1,
+  };
+}
+
+/**
+ * `includeQuestions` — o'qituvchi/muallif to'liq savol+javoblarni oladi.
+ * O'quvchi ro'yxatda faqat meta oladi (savollar bo'sh, javoblar yashiringan).
+ */
+export function sTest(
+  t: TestDoc & { createdAt: Date },
+  includeQuestions: boolean
+): Test {
+  const rawQs = (t.questions ?? []) as RawQuestion[];
+  const totalPoints = rawQs.reduce((sum, q) => sum + (q.points ?? 1), 0);
+  return {
+    id: id(t._id),
+    groupId: id(t.groupId),
+    authorId: id(t.authorId),
+    title: t.title,
+    subject: t.subject ?? "",
+    description: t.description ?? "",
+    durationMin: t.durationMin ?? 30,
+    questions: includeQuestions
+      ? rawQs.map((q) => sQuestion(q, true))
+      : [],
+    questionCount: rawQs.length,
+    totalPoints,
+    shuffleQuestions: !!t.shuffleQuestions,
+    shuffleOptions: !!t.shuffleOptions,
+    maxViolations: t.maxViolations ?? 3,
+    status: t.status as Test["status"],
+    opensAt: iso(t.opensAt),
+    closesAt: iso(t.closesAt),
+    createdAt: iso(t.createdAt)!,
+  };
+}
+
+export function sTestAttempt(a: TestAttemptDoc): TestAttempt {
+  return {
+    id: id(a._id),
+    testId: id(a.testId),
+    studentId: id(a.studentId),
+    startedAt: iso(a.startedAt)!,
+    endsAt: iso(a.endsAt)!,
+    submittedAt: iso(a.submittedAt),
+    status: a.status as TestAttempt["status"],
+    score: a.score ?? 0,
+    maxScore: a.maxScore ?? 0,
+    correctCount: a.correctCount ?? 0,
+    totalCount: a.totalCount ?? 0,
+    violations: a.violations ?? 0,
+    answers: (a.answers ?? []).map((an) => ({
+      questionId: an.questionId,
+      optionId: an.optionId ?? undefined,
+      text: an.text ?? undefined,
+      correct: typeof an.correct === "boolean" ? an.correct : undefined,
+    })),
   };
 }

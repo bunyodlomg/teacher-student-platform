@@ -7,12 +7,16 @@ import {
   Submission,
   Notification,
   Announcement,
+  Test,
+  TestAttempt,
   GroupDoc,
   PostDoc,
   AssignmentDoc,
   SubmissionDoc,
   NotificationDoc,
   AnnouncementDoc,
+  TestDoc,
+  TestAttemptDoc,
   UserDoc,
 } from "./models";
 import {
@@ -23,6 +27,8 @@ import {
   sSubmission,
   sNotification,
   sAnnouncement,
+  sTest,
+  sTestAttempt,
 } from "./serialize";
 
 interface SessionUser {
@@ -99,6 +105,24 @@ export async function loadStateFor(user: SessionUser) {
     .lean<SubmissionDoc[]>()
     .exec();
 
+  // ---- Testlar (DTM) ----
+  const isTeacher = user.role === "teacher" || user.role === "admin";
+  // O'quvchi faqat ochiq/yopiq testlarni ko'radi (qoralamalarni emas).
+  const testFilter = isTeacher
+    ? { groupId: { $in: groupIds } }
+    : { groupId: { $in: groupIds }, status: { $in: ["open", "closed"] } };
+  const tests = await Test.find(testFilter)
+    .sort({ createdAt: -1 })
+    .lean<(TestDoc & { createdAt: Date })[]>()
+    .exec();
+
+  const attemptFilter = isTeacher
+    ? { testId: { $in: tests.map((t) => t._id) } }
+    : { studentId: user.id };
+  const attempts = await TestAttempt.find(attemptFilter)
+    .lean<TestAttemptDoc[]>()
+    .exec();
+
   return {
     users: users.map(sUser),
     groups: groups.map(sGroup),
@@ -107,5 +131,7 @@ export async function loadStateFor(user: SessionUser) {
     submissions: submissions.map(sSubmission),
     notifications: notifications.map(sNotification),
     announcements: announcements.map(sAnnouncement),
+    tests: tests.map((t) => sTest(t, isTeacher)),
+    attempts: attempts.map(sTestAttempt),
   };
 }

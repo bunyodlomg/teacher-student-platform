@@ -1,12 +1,14 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
-import { Field, Input, Textarea } from "@/components/ui/Field";
-import { FileDrop } from "@/components/ui/FileDrop";
+import { Field, Input } from "@/components/ui/Field";
+import { RichTextArea } from "@/components/ui/RichTextArea";
+import { FileDrop, FileDropHandle } from "@/components/ui/FileDrop";
 import { Modal } from "@/components/ui/Modal";
 import { Attachment, Post } from "@/lib/types";
+import { looksLikeHtml, textToHtml } from "@/lib/sanitize";
 import { useData } from "@/store/data";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 /** Edit a post's title, text, tags and attachments. */
 export function EditPostModal({
@@ -26,13 +28,14 @@ export function EditPostModal({
   const [files, setFiles] = useState<Attachment[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const fileDropRef = useRef<FileDropHandle>(null);
 
   // re-seed fields when a different post is opened
   const [syncKey, setSyncKey] = useState<string | null>(null);
   if (open && post && syncKey !== post.id) {
     setSyncKey(post.id);
     setTitle(post.title);
-    setBody(post.body);
+    setBody(looksLikeHtml(post.body) ? post.body : textToHtml(post.body));
     setTags((post.tags ?? []).join(", "));
     setFiles(post.attachments ?? []);
     setError("");
@@ -66,6 +69,8 @@ export function EditPostModal({
       open={open}
       onClose={onClose}
       title="Postni tahrirlash"
+      className="sm:max-w-2xl"
+      onDropFiles={(f) => fileDropRef.current?.addFiles(f)}
       footer={
         <>
           <Button variant="ghost" size="sm" onClick={onClose}>
@@ -81,8 +86,8 @@ export function EditPostModal({
         <Field label="Sarlavha">
           <Input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
         </Field>
-        <Field label="Matn">
-          <Textarea value={body} onChange={(e) => setBody(e.target.value)} />
+        <Field label="Matn" hint="Formatlash paneli · ⌘/Ctrl+Enter — saqlash">
+          <RichTextArea value={body} onChange={setBody} onSubmit={save} maxLength={4000} />
         </Field>
         {post.type === "lesson" && (
           <Field label="Teglar" hint="vergul bilan ajrating">
@@ -93,7 +98,7 @@ export function EditPostModal({
             />
           </Field>
         )}
-        <FileDrop value={files} onChange={setFiles} />
+        <FileDrop ref={fileDropRef} value={files} onChange={setFiles} />
         {error && (
           <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-[13px] font-medium text-danger">
             {error}
