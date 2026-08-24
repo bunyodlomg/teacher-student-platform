@@ -16,3 +16,7 @@ export { Test } from "./Test";
 export type { TestDoc } from "./Test";
 export { TestAttempt } from "./TestAttempt";
 export type { TestAttemptDoc } from "./TestAttempt";
+export { Conversation } from "./Conversation";
+export type { ConversationDoc } from "./Conversation";
+export { Message } from "./Message";
+export type { MessageDoc } from "./Message";

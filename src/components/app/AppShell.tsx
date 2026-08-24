@@ -1,6 +1,7 @@
 "use client";
 
 import { useData } from "@/store/data";
+import { useChat } from "@/store/chat";
 import { useSession } from "@/store/session";
 import { groupsForUser } from "@/lib/selectors";
 import { Role } from "@/lib/types";
@@ -17,6 +18,7 @@ import {
   ListTodo,
   LogOut,
   Menu,
+  MessageCircle,
   Plus,
   Settings,
   Users,
@@ -49,6 +51,7 @@ function navFor(role: Role): NavItem[] {
       { href: "/admin", label: "Umumiy", icon: Home },
       { href: "/admin/users", label: "Foydalanuvchilar", icon: Users },
       { href: "/admin/groups", label: "Guruhlar", icon: LayoutGrid },
+      { href: "/admin/chat", label: "Suhbatlar", icon: MessageCircle },
     ];
   }
   if (role === "teacher") {
@@ -56,6 +59,7 @@ function navFor(role: Role): NavItem[] {
       { href: "/teacher", label: "Umumiy", icon: Home },
       { href: "/teacher/review", label: "Tekshirish", icon: ClipboardCheck },
       { href: "/teacher/tests", label: "Testlar", icon: FileCheck2 },
+      { href: "/teacher/chat", label: "Suhbatlar", icon: MessageCircle },
       { href: "/teacher/classes", label: "Guruhlar", icon: LayoutGrid },
       { href: "/teacher/calendar", label: "Kalendar", icon: CalendarDays },
     ];
@@ -64,6 +68,7 @@ function navFor(role: Role): NavItem[] {
     { href: "/student", label: "Bugun", icon: Home },
     { href: "/student/assignments", label: "Topshiriqlar", icon: ListTodo },
     { href: "/student/tests", label: "Testlar", icon: FileCheck2 },
+    { href: "/student/chat", label: "Suhbatlar", icon: MessageCircle },
     { href: "/student/calendar", label: "Kalendar", icon: CalendarDays },
     { href: "/student/progress", label: "Natijalar", icon: LineChart },
   ];
@@ -96,6 +101,11 @@ export function AppShell({
   const notifications = useData((s) => s.notifications);
   const bootstrap = useData((s) => s.bootstrap);
   const clearData = useData((s) => s.clear);
+  const loadConversations = useChat((s) => s.loadConversations);
+  const clearChat = useChat((s) => s.clear);
+  const chatUnread = useChat((s) =>
+    s.conversations.reduce((sum, c) => sum + (c.unread || 0), 0)
+  );
 
   const [drawer, setDrawer] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -111,8 +121,9 @@ export function AppShell({
   useEffect(() => {
     if (hydrated && currentUserId && sessionRole === role) {
       bootstrap();
+      loadConversations();
     }
-  }, [hydrated, currentUserId, sessionRole, role, bootstrap]);
+  }, [hydrated, currentUserId, sessionRole, role, bootstrap, loadConversations]);
 
   // route guard
   useEffect(() => {
@@ -200,6 +211,11 @@ export function AppShell({
                   strokeWidth={1.9}
                 />
                 <span className={cn(active && "font-semibold")}>{item.label}</span>
+                {item.href.endsWith("/chat") && chatUnread > 0 && (
+                  <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1.5 text-[10px] font-bold text-accent-ink">
+                    {chatUnread}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -271,6 +287,7 @@ export function AppShell({
             onClick={async () => {
               await logout();
               clearData();
+              clearChat();
               router.replace("/login");
             }}
           >

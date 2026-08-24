@@ -9,11 +9,15 @@ import type {
   AnnouncementDoc,
   TestDoc,
   TestAttemptDoc,
+  ConversationDoc,
+  MessageDoc,
 } from "./models";
 import type {
   AppNotification,
   Assignment,
   Attachment,
+  ChatConversation,
+  ChatMessage,
   Comment,
   Group,
   Post,
@@ -259,6 +263,38 @@ export function sTest(
     opensAt: iso(t.opensAt),
     closesAt: iso(t.closesAt),
     createdAt: iso(t.createdAt)!,
+  };
+}
+
+/** `unread` — joriy foydalanuvchi uchun so'rovda alohida hisoblanadi. */
+export function sConversation(
+  c: ConversationDoc,
+  unread = 0
+): ChatConversation {
+  const lm = c.lastMessage as
+    | { body?: string; senderId?: unknown; at?: Date | string }
+    | undefined;
+  return {
+    id: id(c._id),
+    kind: c.kind as ChatConversation["kind"],
+    groupId: c.groupId ? id(c.groupId) : undefined,
+    participantIds: (c.participantIds ?? []).map(id),
+    lastMessage:
+      lm && lm.at
+        ? { body: lm.body ?? "", senderId: id(lm.senderId), at: iso(lm.at)! }
+        : undefined,
+    lastMessageAt: iso(c.lastMessageAt),
+    unread,
+  };
+}
+
+export function sMessage(m: MessageDoc & { createdAt: Date }): ChatMessage {
+  return {
+    id: id(m._id),
+    conversationId: id(m.conversationId),
+    senderId: id(m.senderId),
+    body: m.body,
+    createdAt: iso(m.createdAt)!,
   };
 }
 

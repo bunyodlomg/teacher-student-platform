@@ -217,3 +217,35 @@ export interface TestAttempt {
   violations: number;
   answers: AttemptAnswer[];
 }
+
+// ---- Suhbatlar (chat) ----
+
+/** group = guruh umumiy chati · direct = ikki kishilik shaxsiy chat */
+export type ChatKind = "group" | "direct";
+
+export interface ChatMessagePreview {
+  body: string;
+  senderId: string;
+  at: string;
+}
+
+export interface ChatConversation {
+  id: string;
+  kind: ChatKind;
+  /** guruh chati uchun */
+  groupId?: string;
+  /** shaxsiy chat a'zolari (ikki foydalanuvchi id) */
+  participantIds: string[];
+  lastMessage?: ChatMessagePreview;
+  lastMessageAt?: string;
+  /** joriy foydalanuvchi uchun o'qilmagan xabarlar soni */
+  unread: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  body: string;
+  createdAt: string;
+}
