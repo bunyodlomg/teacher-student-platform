@@ -39,7 +39,8 @@ fi
 log "1/10 · Tizim yangilanmoqda va asosiy paketlar o'rnatilmoqda"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y curl git ufw build-essential gnupg ca-certificates lsb-release openssl rsync
+# sudo — minimal serverlarda o'rnatilmagan bo'lishi mumkin (skript ichida ishlatiladi)
+apt-get install -y sudo curl git ufw build-essential gnupg ca-certificates lsb-release openssl rsync
 
 # =====================================================================================
 log "2/10 · Swap (RAM 2 GB dan kam bo'lsa) — next build OOM bo'lmasligi uchun"
