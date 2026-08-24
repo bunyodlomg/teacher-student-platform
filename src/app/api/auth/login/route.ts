@@ -1,7 +1,12 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/server/db";
 import { User } from "@/server/models";
-import { verifyPassword, signToken, tokenCookie } from "@/server/auth";
+import {
+  verifyPassword,
+  signToken,
+  tokenCookie,
+  isSecureRequest,
+} from "@/server/auth";
 import { sUser } from "@/server/serialize";
 import { json, err } from "@/server/api";
 
@@ -28,6 +33,6 @@ export async function POST(req: NextRequest) {
 
   const token = signToken({ uid: user._id.toString(), role: user.role });
   const res = json({ user: sUser(user) });
-  res.cookies.set(tokenCookie(token));
+  res.cookies.set(tokenCookie(token, isSecureRequest(req)));
   return res;
 }

@@ -35,26 +35,41 @@ export function verifyToken(token: string): TokenPayload | null {
   }
 }
 
-/** Cookie options for the auth token. */
-export function tokenCookie(token: string) {
+/**
+ * So'rov haqiqatan HTTPS orqali kelganini aniqlaydi (Nginx `X-Forwarded-Proto`).
+ * `Secure` cookie faqat HTTPS'da saqlanadi — SSL o'rnatilmagan HTTP saytda
+ * bu bayroq cookie'ni yo'qotib, "login formga qaytish" muammosini keltiradi.
+ */
+export function isSecureRequest(req: {
+  headers: { get(name: string): string | null };
+}): boolean {
+  const proto = (req.headers.get("x-forwarded-proto") || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  return proto === "https";
+}
+
+/** Cookie options for the auth token. `secure` — so'rov protokoliga qarab. */
+export function tokenCookie(token: string, secure = false) {
   return {
     name: COOKIE_NAME,
     value: token,
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     path: "/",
     maxAge: MAX_AGE,
   };
 }
 
-export function clearCookie() {
+export function clearCookie(secure = false) {
   return {
     name: COOKIE_NAME,
     value: "",
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     path: "/",
     maxAge: 0,
   };
