@@ -598,12 +598,12 @@ function NewChatModal({
     if (role === "admin") {
       users.forEach((u) => u.id !== me.id && set.add(u.id));
     } else {
+      // o'z guruhlarimdagi barcha a'zolar (o'qituvchi + barcha o'quvchilar)
       const mine = groupsForUser(groups, me.id, role);
-      if (role === "teacher") {
-        mine.forEach((g) => g.studentIds.forEach((s) => set.add(s)));
-      } else {
-        mine.forEach((g) => set.add(g.teacherId));
-      }
+      mine.forEach((g) => {
+        set.add(g.teacherId);
+        g.studentIds.forEach((s) => set.add(s));
+      });
       // adminlar bilan ham yozishish mumkin
       users.forEach((u) => u.role === "admin" && set.add(u.id));
     }

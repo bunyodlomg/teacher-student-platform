@@ -32,19 +32,21 @@ export async function userGroupIds(me: Me): Promise<string[]> {
   return groups.map((g) => g._id.toString());
 }
 
-/** Ikki kishi kamida bitta umumiy guruhda o'qituvchi–o'quvchi bo'lib bog'langanmi? */
-async function shareTeacherStudentGroup(
-  teacherId: string,
-  studentId: string
-): Promise<boolean> {
-  const g = await Group.exists({ teacherId, studentIds: studentId });
+/** Ikki foydalanuvchi kamida bitta umumiy guruhda (o'qituvchi yoki o'quvchi sifatida)mi? */
+async function shareAnyGroup(aId: string, bId: string): Promise<boolean> {
+  const g = await Group.exists({
+    $and: [
+      { $or: [{ teacherId: aId }, { studentIds: aId }] },
+      { $or: [{ teacherId: bId }, { studentIds: bId }] },
+    ],
+  });
   return !!g;
 }
 
 /**
  * Joriy foydalanuvchi berilgan foydalanuvchiga shaxsiy xabar yoza oladimi?
  * - admin → hammaga (va hamma adminga)
- * - o'qituvchi ↔ o'z guruhidagi o'quvchi
+ * - aks holda: umumiy guruhdagi istalgan ikki a'zo (o'quvchi↔o'quvchi, o'qituvchi↔o'quvchi)
  */
 export async function canDirectMessage(
   me: Me,
@@ -54,11 +56,7 @@ export async function canDirectMessage(
   const otherId = sid(other._id);
   if (myId === otherId) return false;
   if (me.role === "admin" || other.role === "admin") return true;
-  if (me.role === "teacher" && other.role === "student")
-    return shareTeacherStudentGroup(myId, otherId);
-  if (me.role === "student" && other.role === "teacher")
-    return shareTeacherStudentGroup(otherId, myId);
-  return false;
+  return shareAnyGroup(myId, otherId);
 }
 
 /** Foydalanuvchi shu suhbatni ko'ra oladimi? */
