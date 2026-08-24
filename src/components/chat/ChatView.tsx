@@ -3,14 +3,29 @@
 import { useChat } from "@/store/chat";
 import { useData } from "@/store/data";
 import { useSession } from "@/store/session";
-import { ChatConversation, Role, User } from "@/lib/types";
+import { Attachment, ChatConversation, Role, User } from "@/lib/types";
 import { groupsForUser } from "@/lib/selectors";
 import { cn, relativeTime } from "@/lib/utils";
+import { uploadAttachment } from "@/lib/upload";
+import { toast } from "@/store/toast";
 import { Avatar } from "@/components/ui/Avatar";
 import { Monogram } from "@/components/ui/Monogram";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ArrowLeft, MessagesSquare, Plus, Search, Send, Users } from "lucide-react";
+import { AttachmentChip } from "@/components/ui/Attachment";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import {
+  ArrowLeft,
+  Loader2,
+  MessagesSquare,
+  Paperclip,
+  Plus,
+  Search,
+  Send,
+  Trash2,
+  Users,
+  X,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 /** HH:MM ko'rinishidagi vaqt. */
@@ -206,6 +221,7 @@ export function ChatView({ role }: { role: Role }) {
               conv={active}
               meta={metaFor(active)}
               meId={me.id}
+              role={role}
               userById={userById}
               onBack={() => setActive(null)}
             />
@@ -240,23 +256,31 @@ function Thread({
   conv,
   meta,
   meId,
+  role,
   userById,
   onBack,
 }: {
   conv: ChatConversation;
   meta: ConvMeta;
   meId: string;
+  role: Role;
   userById: Map<string, User>;
   onBack: () => void;
 }) {
   const messages = useChat((s) => s.messagesByConv[conv.id]);
   const hasMore = useChat((s) => s.hasMoreByConv[conv.id]);
   const loading = useChat((s) => s.loadingMsgs[conv.id]);
+  const typing = useChat((s) => s.typingByConv[conv.id]);
   const loadOlder = useChat((s) => s.loadOlder);
   const sendMessage = useChat((s) => s.sendMessage);
+  const deleteMessage = useChat((s) => s.deleteMessage);
+  const emitTyping = useChat((s) => s.emitTyping);
 
   const [text, setText] = useState("");
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [files, setFiles] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(0);
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastCount = useRef(0);
 
@@ -271,10 +295,31 @@ function Thread({
 
   const send = () => {
     const t = text.trim();
-    if (!t) return;
+    if (!t && files.length === 0) return;
     setText("");
-    sendMessage(conv.id, t);
+    setFiles([]);
+    sendMessage(conv.id, t, files);
   };
+
+  const onPick = async (list: FileList | null) => {
+    if (!list?.length) return;
+    const arr = Array.from(list);
+    setUploading((u) => u + arr.length);
+    for (const f of arr) {
+      const { attachment, error } = await uploadAttachment(f);
+      if (attachment) setFiles((prev) => [...prev, attachment]);
+      else toast.error(error || `"${f.name}" yuklanmadi`);
+      setUploading((u) => u - 1);
+    }
+  };
+
+  const canDelete = (senderId: string) =>
+    senderId === meId ||
+    role === "admin" ||
+    (meta.isGroup && role === "teacher");
+
+  const typingNames = Object.values(typing ?? {}).map((t) => t.name);
+  const busy = !text.trim() && files.length === 0;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -296,12 +341,16 @@ function Thread({
           <p className="truncate text-sm font-semibold text-ink">
             {meta.title}
           </p>
-          <p className="truncate text-[11px] text-faint">{meta.subtitle}</p>
+          <p className="truncate text-[11px] text-faint">
+            {typingNames.length > 0
+              ? `${typingNames.join(", ")} yozmoqda…`
+              : meta.subtitle}
+          </p>
         </div>
       </div>
 
       {/* Xabarlar */}
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {hasMore && (
           <div className="mb-3 text-center">
             <button
@@ -329,11 +378,18 @@ function Thread({
               const prev = messages[i - 1];
               const showName =
                 meta.isGroup && !mine && (!prev || prev.senderId !== m.senderId);
+              const deletable = canDelete(m.senderId);
               return (
                 <div
                   key={m.id}
-                  className={cn("flex", mine ? "justify-end" : "justify-start")}
+                  className={cn(
+                    "group flex items-end gap-1.5",
+                    mine ? "justify-end" : "justify-start"
+                  )}
                 >
+                  {mine && deletable && (
+                    <DeleteButton onClick={() => setPendingDelete(m.id)} />
+                  )}
                   <div
                     className={cn(
                       "max-w-[78%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",
@@ -347,7 +403,37 @@ function Thread({
                         {sender?.name ?? "—"}
                       </p>
                     )}
-                    <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                    {m.attachments.length > 0 && (
+                      <div className="mb-1 space-y-1.5">
+                        {m.attachments.map((a) =>
+                          a.kind === "image" && a.url ? (
+                            <a
+                              key={a.id}
+                              href={a.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={a.url}
+                                alt={a.name}
+                                className="max-h-64 w-full rounded-lg object-cover"
+                              />
+                            </a>
+                          ) : (
+                            <AttachmentChip
+                              key={a.id}
+                              attachment={a}
+                              className="bg-surface/90"
+                            />
+                          )
+                        )}
+                      </div>
+                    )}
+                    {m.body && (
+                      <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                    )}
                     <p
                       className={cn(
                         "mt-0.5 text-right text-[10px]",
@@ -357,20 +443,88 @@ function Thread({
                       {clock(m.createdAt)}
                     </p>
                   </div>
+                  {!mine && deletable && (
+                    <DeleteButton onClick={() => setPendingDelete(m.id)} />
+                  )}
                 </div>
               );
             })}
           </div>
         )}
+        {typingNames.length > 0 && (
+          <p className="mt-2 px-1 text-xs italic text-faint">
+            {typingNames.join(", ")} yozmoqda…
+          </p>
+        )}
         <div ref={bottomRef} />
       </div>
+
+      {/* Tanlangan fayllar */}
+      {(files.length > 0 || uploading > 0) && (
+        <div className="flex flex-wrap gap-2 border-t border-border px-3 pt-3">
+          {files.map((a) => (
+            <div
+              key={a.id}
+              className="flex items-center gap-2 rounded-lg border border-border bg-elevated px-2 py-1.5 text-xs"
+            >
+              {a.kind === "image" && a.url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={a.url}
+                  alt={a.name}
+                  className="h-7 w-7 rounded object-cover"
+                />
+              ) : (
+                <Paperclip className="h-3.5 w-3.5 text-faint" />
+              )}
+              <span className="max-w-[120px] truncate text-ink">{a.name}</span>
+              <button
+                onClick={() =>
+                  setFiles((prev) => prev.filter((x) => x.id !== a.id))
+                }
+                aria-label="O'chirish"
+                className="text-faint hover:text-danger"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          {uploading > 0 && (
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-elevated px-2 py-1.5 text-xs text-muted">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Yuklanmoqda…
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Yozish */}
       <div className="border-t border-border p-3">
         <div className="flex items-end gap-2">
+          <button
+            onClick={() => fileRef.current?.click()}
+            aria-label="Fayl biriktirish"
+            title="Fayl biriktirish"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border text-muted transition-colors hover:bg-elevated hover:text-accent"
+          >
+            <Paperclip className="h-[18px] w-[18px]" />
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              onPick(e.target.files);
+              e.target.value = "";
+            }}
+          />
           <textarea
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              emitTyping(conv.id);
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -383,7 +537,7 @@ function Thread({
           />
           <button
             onClick={send}
-            disabled={!text.trim()}
+            disabled={busy}
             aria-label="Yuborish"
             className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-accent-ink transition-opacity disabled:opacity-40"
           >
@@ -391,7 +545,31 @@ function Thread({
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete) deleteMessage(conv.id, pendingDelete);
+        }}
+        title="Xabarni o'chirish"
+        body="Bu xabar butunlay o'chiriladi. Davom etilsinmi?"
+        confirmLabel="O'chirish"
+        busyLabel="O'chirilmoqda…"
+      />
     </div>
+  );
+}
+
+function DeleteButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label="Xabarni o'chirish"
+      className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-faint opacity-0 transition-opacity hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+    >
+      <Trash2 className="h-4 w-4" />
+    </button>
   );
 }
 

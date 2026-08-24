@@ -293,7 +293,8 @@ export function sMessage(m: MessageDoc & { createdAt: Date }): ChatMessage {
     id: id(m._id),
     conversationId: id(m.conversationId),
     senderId: id(m.senderId),
-    body: m.body,
+    body: m.body ?? "",
+    attachments: ((m.attachments ?? []) as RawAttachment[]).map(sAttachment),
     createdAt: iso(m.createdAt)!,
   };
 }

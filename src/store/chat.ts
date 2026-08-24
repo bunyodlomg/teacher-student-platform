@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { ChatConversation, ChatMessage } from "@/lib/types";
+import { Attachment, ChatConversation, ChatMessage } from "@/lib/types";
 import { getSocket } from "@/lib/socket";
 import { useSession } from "@/store/session";
 
@@ -36,10 +36,14 @@ function upsertConv(
   return sortConvs(next);
 }
 
+/** convId -> userId -> { name, at(ms) } — "yozmoqda..." holati (vaqtinchalik). */
+type TypingMap = Record<string, Record<string, { name: string; at: number }>>;
+
 interface ChatState {
   conversations: ChatConversation[];
   messagesByConv: Record<string, ChatMessage[]>;
   hasMoreByConv: Record<string, boolean>;
+  typingByConv: TypingMap;
   activeId: string | null;
   loadedList: boolean;
   loadingList: boolean;
@@ -49,7 +53,13 @@ interface ChatState {
   setActive: (id: string | null) => void;
   loadMessages: (convId: string) => Promise<void>;
   loadOlder: (convId: string) => Promise<void>;
-  sendMessage: (convId: string, body: string) => Promise<void>;
+  sendMessage: (
+    convId: string,
+    body: string,
+    attachments?: Attachment[]
+  ) => Promise<void>;
+  deleteMessage: (convId: string, messageId: string) => Promise<void>;
+  emitTyping: (convId: string) => void;
   markRead: (convId: string) => Promise<void>;
   startDirect: (userId: string) => Promise<string | null>;
   totalUnread: () => number;
@@ -57,11 +67,16 @@ interface ChatState {
 }
 
 let wired = false;
+// "yozmoqda..." yozuvlarini avtomatik tozalash uchun taymerlar
+const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+// typing signalini kamdan-kam yuborish uchun (throttle)
+const lastTypingSent = new Map<string, number>();
 
 export const useChat = create<ChatState>()((set, get) => ({
   conversations: [],
   messagesByConv: {},
   hasMoreByConv: {},
+  typingByConv: {},
   activeId: null,
   loadedList: false,
   loadingList: false,
@@ -133,6 +148,75 @@ export const useChat = create<ChatState>()((set, get) => ({
         }
       );
 
+      // "yozmoqda..." signali
+      socket.on(
+        "chat:typing",
+        (p: { conversationId: string; userId: string; name: string }) => {
+          const meId = useSession.getState().currentUserId;
+          if (p.userId === meId) return;
+          const key = `${p.conversationId}:${p.userId}`;
+          set((st) => {
+            const conv = { ...(st.typingByConv[p.conversationId] ?? {}) };
+            conv[p.userId] = { name: p.name, at: Date.now() };
+            return {
+              typingByConv: { ...st.typingByConv, [p.conversationId]: conv },
+            };
+          });
+          // 4 soniyadan keyin o'chiramiz (yangilanmasa)
+          const prev = typingTimers.get(key);
+          if (prev) clearTimeout(prev);
+          typingTimers.set(
+            key,
+            setTimeout(() => {
+              typingTimers.delete(key);
+              set((st) => {
+                const conv = { ...(st.typingByConv[p.conversationId] ?? {}) };
+                delete conv[p.userId];
+                return {
+                  typingByConv: {
+                    ...st.typingByConv,
+                    [p.conversationId]: conv,
+                  },
+                };
+              });
+            }, 4000)
+          );
+        }
+      );
+
+      // xabar o'chirildi
+      socket.on(
+        "chat:message-deleted",
+        (p: {
+          conversationId: string;
+          messageId: string;
+          lastMessage: ChatConversation["lastMessage"] | null;
+          lastMessageAt: string | null;
+        }) => {
+          set((st) => {
+            const existing = st.messagesByConv[p.conversationId];
+            const messagesByConv = existing
+              ? {
+                  ...st.messagesByConv,
+                  [p.conversationId]: existing.filter(
+                    (m) => m.id !== p.messageId
+                  ),
+                }
+              : st.messagesByConv;
+            const conversations = st.conversations.map((c) =>
+              c.id === p.conversationId
+                ? {
+                    ...c,
+                    lastMessage: p.lastMessage ?? undefined,
+                    lastMessageAt: p.lastMessageAt ?? undefined,
+                  }
+                : c
+            );
+            return { messagesByConv, conversations: sortConvs(conversations) };
+          });
+        }
+      );
+
       // qayta ulanish / a'zolik o'zgarganda ro'yxatni yangilash
       socket.on("state:refresh", () => {
         set({ loadedList: false });
@@ -199,11 +283,13 @@ export const useChat = create<ChatState>()((set, get) => ({
     }
   },
 
-  sendMessage: async (convId, body) => {
+  sendMessage: async (convId, body, attachments) => {
     const text = body.trim();
-    if (!text) return;
+    const files = attachments ?? [];
+    if (!text && files.length === 0) return;
     const { ok, data } = await postJSON(`/api/chat/${convId}/messages`, {
       body: text,
+      attachments: files,
     });
     if (ok && data.message) {
       // socket echo ham keladi, lekin darhol ko'rsatamiz (id bo'yicha dedupe)
@@ -226,6 +312,40 @@ export const useChat = create<ChatState>()((set, get) => ({
           conversations: upsertConv(st.conversations, merged),
         };
       });
+    }
+  },
+
+  deleteMessage: async (convId, messageId) => {
+    // optimistik o'chirish
+    set((st) => {
+      const existing = st.messagesByConv[convId];
+      if (!existing) return {};
+      return {
+        messagesByConv: {
+          ...st.messagesByConv,
+          [convId]: existing.filter((m) => m.id !== messageId),
+        },
+      };
+    });
+    try {
+      await fetch(`/api/chat/messages/${messageId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+    } catch {
+      /* socket voqeasi holatni baribir moslashtiradi */
+    }
+  },
+
+  emitTyping: (convId) => {
+    const now = Date.now();
+    const last = lastTypingSent.get(convId) ?? 0;
+    if (now - last < 2500) return; // 2.5s da bir marta
+    lastTypingSent.set(convId, now);
+    try {
+      getSocket().emit("chat:typing", { conversationId: convId });
+    } catch {
+      /* ignore */
     }
   },
 
@@ -255,10 +375,14 @@ export const useChat = create<ChatState>()((set, get) => ({
     get().conversations.reduce((sum, c) => sum + (c.unread || 0), 0),
 
   clear: () => {
+    typingTimers.forEach((t) => clearTimeout(t));
+    typingTimers.clear();
+    lastTypingSent.clear();
     set({
       conversations: [],
       messagesByConv: {},
       hasMoreByConv: {},
+      typingByConv: {},
       activeId: null,
       loadedList: false,
       loadingList: false,

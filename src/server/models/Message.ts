@@ -1,4 +1,5 @@
 import mongoose, { Schema, InferSchemaType, Model } from "mongoose";
+import { AttachmentSchema } from "./subdocs";
 
 const MessageSchema = new Schema(
   {
@@ -9,7 +10,9 @@ const MessageSchema = new Schema(
       index: true,
     },
     senderId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    body: { type: String, required: true },
+    // matn ixtiyoriy — faqat fayl(lar)dan iborat xabar ham bo'lishi mumkin
+    body: { type: String, default: "" },
+    attachments: [AttachmentSchema],
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

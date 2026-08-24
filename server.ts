@@ -8,7 +8,8 @@ import { setIO, room } from "./src/server/io";
 import { serveUpload } from "./src/server/static";
 import { getUserFromToken, COOKIE_NAME } from "./src/server/auth";
 import { connectDB } from "./src/server/db";
-import { Group } from "./src/server/models";
+import { Group, Conversation } from "./src/server/models";
+import { canAccessConversation } from "./src/server/chat";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = parseInt(process.env.PORT || "3000", 10);
@@ -70,6 +71,41 @@ app.prepare().then(async () => {
         userId,
         groups: groups.map((g) => g._id.toString()),
       });
+
+      // "yozmoqda..." — vaqtinchalik signal (DB'ga yozilmaydi).
+      socket.on(
+        "chat:typing",
+        async (data: { conversationId?: string }) => {
+          const conversationId = data?.conversationId;
+          if (!conversationId) return;
+          try {
+            const conv = await Conversation.findById(conversationId)
+              .lean()
+              .exec();
+            if (!conv) return;
+            const ok = await canAccessConversation(
+              { _id: userId, role: user.role },
+              conv
+            );
+            if (!ok) return;
+            const payload = { conversationId, userId, name: user.name };
+            if (conv.kind === "group" && conv.groupId) {
+              // yuboruvchidan boshqa hammaga (socket.to xonadagi o'zini chiqarib tashlaydi)
+              socket
+                .to(room.group(conv.groupId.toString()))
+                .emit("chat:typing", payload);
+            } else {
+              for (const p of conv.participantIds ?? []) {
+                const pid = p.toString();
+                if (pid !== userId)
+                  io.to(room.user(pid)).emit("chat:typing", payload);
+              }
+            }
+          } catch {
+            /* jim o'tkazamiz */
+          }
+        }
+      );
     } catch (err) {
       console.error("socket connection error", err);
       socket.disconnect(true);

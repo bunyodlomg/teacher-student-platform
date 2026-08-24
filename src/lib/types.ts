@@ -247,5 +247,6 @@ export interface ChatMessage {
   conversationId: string;
   senderId: string;
   body: string;
+  attachments: Attachment[];
   createdAt: string;
 }
