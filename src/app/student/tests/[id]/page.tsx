@@ -13,6 +13,7 @@ import { motion } from "framer-motion";
 import {
   AlertTriangle,
   ArrowLeft,
+  Check,
   CheckCircle2,
   Clock,
   Copy,
@@ -21,10 +22,11 @@ import {
   Maximize,
   Play,
   ShieldAlert,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface Fs extends HTMLElement {
   webkitRequestFullscreen?: () => Promise<void>;
@@ -79,7 +81,13 @@ export default function StudentTestDetail() {
 
   // ---- result ----
   if (doneAttempt) {
-    return <ResultView attempt={doneAttempt} testTitle={test.title} />;
+    return (
+      <ResultView
+        attempt={doneAttempt}
+        testTitle={test.title}
+        testId={test.id}
+      />
+    );
   }
 
   const resuming = !!storeAttempt && storeAttempt.status === "in_progress";
@@ -203,9 +211,11 @@ function Rule({ icon: Icon, children }: { icon: typeof Clock; children: React.Re
 function ResultView({
   attempt,
   testTitle,
+  testId,
 }: {
   attempt: TestAttempt;
   testTitle: string;
+  testId: string;
 }) {
   const pct = attempt.maxScore
     ? Math.round((attempt.score / attempt.maxScore) * 100)
@@ -222,11 +232,11 @@ function ResultView({
         <ArrowLeft className="h-4 w-4" /> Barcha testlar
       </Link>
 
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-2xl">
         <motion.div
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="rounded-3xl border border-border bg-surface p-8 text-center shadow-card"
+          className="mx-auto max-w-md rounded-3xl border border-border bg-surface p-8 text-center shadow-card"
         >
           <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-success/10 text-success">
             <CheckCircle2 className="h-8 w-8" />
@@ -263,6 +273,202 @@ function ResultView({
             Natija o'qituvchingizga yuborildi.
           </p>
         </motion.div>
+
+        <ReviewSection testId={testId} />
+      </div>
+    </div>
+  );
+}
+
+interface ReviewOption {
+  id: string;
+  text: string;
+}
+interface ReviewItem {
+  index: number;
+  id: string;
+  type: "single" | "boolean" | "short";
+  text: string;
+  imageUrl?: string;
+  points: number;
+  options: ReviewOption[];
+  answered: boolean;
+  yourOptionId?: string;
+  yourText?: string;
+  correct: boolean;
+  correctOptionId?: string;
+  correctText?: string;
+}
+
+/** O'quvchi qaysi savollarda xato qilganini ko'rsatadi. */
+function ReviewSection({ testId }: { testId: string }) {
+  const [open, setOpen] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [reveal, setReveal] = useState(false);
+  const [items, setItems] = useState<ReviewItem[]>([]);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!open || loaded) return;
+    let alive = true;
+    fetch(`/api/tests/${testId}/review`, { credentials: "include" })
+      .then((r) => r.json().catch(() => ({})))
+      .then((d) => {
+        if (!alive) return;
+        if (d?.review) {
+          setItems(d.review);
+          setReveal(!!d.reveal);
+        } else setError(d?.error || "Ko'rib chiqishни yuklab bo'lmadi");
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (alive) {
+          setError("Tarmoq xatosi");
+          setLoaded(true);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [open, loaded, testId]);
+
+  const wrong = items.filter((it) => !it.correct).length;
+
+  return (
+    <div className="mt-6">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-surface px-4 py-3 text-[14px] font-semibold text-ink transition-colors hover:bg-elevated"
+      >
+        <ListChecks className="h-4 w-4 text-accent" />
+        {open ? "Ko'rib chiqishни yopish" : "Javoblarni ko'rib chiqish"}
+      </button>
+
+      {open && (
+        <div className="mt-4 space-y-3">
+          {!loaded ? (
+            <p className="py-6 text-center text-sm text-muted">
+              <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+            </p>
+          ) : error ? (
+            <p className="rounded-xl bg-danger/10 px-3 py-2 text-center text-[13px] text-danger">
+              {error}
+            </p>
+          ) : (
+            <>
+              <div className="flex items-center justify-between rounded-xl border border-border bg-bg/40 px-4 py-2.5 text-[13px]">
+                <span className="text-muted">
+                  {items.length} savoldan{" "}
+                  <span className="font-semibold text-danger">{wrong} ta xato</span>
+                </span>
+                {!reveal && (
+                  <span className="text-[12px] text-faint">
+                    To'g'ri javoblar test yopilgach ko'rinadi
+                  </span>
+                )}
+              </div>
+              {items.map((it) => (
+                <ReviewCard key={it.id} item={it} reveal={reveal} />
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReviewCard({ item, reveal }: { item: ReviewItem; reveal: boolean }) {
+  const ok = item.correct;
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border p-4",
+        ok
+          ? "border-success/30 bg-success/5"
+          : "border-danger/30 bg-danger/5"
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <span
+          className={cn(
+            "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-white",
+            ok ? "bg-success" : "bg-danger"
+          )}
+        >
+          {ok ? (
+            <Check className="h-3.5 w-3.5" />
+          ) : (
+            <X className="h-3.5 w-3.5" />
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-medium text-ink">
+            <span className="text-faint">{item.index}. </span>
+            {item.text}
+          </p>
+
+          {item.type === "short" ? (
+            <div className="mt-2 space-y-1 text-[13px]">
+              <p className="text-muted">
+                Sizning javobingiz:{" "}
+                <span
+                  className={cn(
+                    "font-semibold",
+                    ok ? "text-success" : "text-danger"
+                  )}
+                >
+                  {item.yourText || "— (bo'sh)"}
+                </span>
+              </p>
+              {reveal && !ok && item.correctText && (
+                <p className="text-muted">
+                  To'g'ri javob:{" "}
+                  <span className="font-semibold text-success">
+                    {item.correctText}
+                  </span>
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="mt-2 space-y-1.5">
+              {item.options.map((o) => {
+                const chosen = o.id === item.yourOptionId;
+                const correctOpt = reveal && o.id === item.correctOptionId;
+                return (
+                  <div
+                    key={o.id}
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[13px]",
+                      correctOpt
+                        ? "border-success/50 bg-success/10 text-ink"
+                        : chosen && !ok
+                        ? "border-danger/50 bg-danger/10 text-ink"
+                        : chosen
+                        ? "border-success/40 bg-success/5 text-ink"
+                        : "border-border text-muted"
+                    )}
+                  >
+                    <span className="flex-1">{o.text}</span>
+                    {chosen && (
+                      <span className="text-[11px] font-semibold text-faint">
+                        siz
+                      </span>
+                    )}
+                    {correctOpt && (
+                      <Check className="h-3.5 w-3.5 text-success" />
+                    )}
+                  </div>
+                );
+              })}
+              {!item.answered && (
+                <p className="text-[12px] italic text-faint">
+                  Javob berilmagan
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

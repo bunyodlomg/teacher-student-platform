@@ -230,14 +230,16 @@ export function AppShell({
                 {myGroups.length}
               </span>
             </p>
-            <button
-              onClick={() => setCreateGroupOpen(true)}
-              aria-label="Yangi guruh yaratish"
-              title="Yangi guruh"
-              className="grid h-6 w-6 place-items-center rounded-md text-faint transition-colors hover:bg-elevated hover:text-accent"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
+            {role === "teacher" && (
+              <button
+                onClick={() => setCreateGroupOpen(true)}
+                aria-label="Yangi guruh yaratish"
+                title="Yangi guruh"
+                className="grid h-6 w-6 place-items-center rounded-md text-faint transition-colors hover:bg-elevated hover:text-accent"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            )}
           </div>
           <div className="space-y-0.5">
             {myGroups.map((g) => {

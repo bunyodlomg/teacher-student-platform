@@ -14,19 +14,28 @@ import { Modal } from "@/components/ui/Modal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { AttachmentChip } from "@/components/ui/Attachment";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { VoiceRecorder } from "@/components/media/VoiceRecorder";
+import { VoiceMessage } from "@/components/media/VoiceMessage";
+import { ChatMessage } from "@/lib/types";
 import {
   ArrowLeft,
+  CornerUpLeft,
   Loader2,
+  Mic,
   MessagesSquare,
   Paperclip,
   Plus,
   Search,
   Send,
+  SmilePlus,
   Trash2,
   Users,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+
+/** Chatда tez reaksiya uchun emoji to'plami. */
+const REACTIONS = ["👍", "❤️", "😂", "🔥", "👏", "😮"];
 
 /** HH:MM ko'rinishidagi vaqt. */
 function clock(iso: string): string {
@@ -274,15 +283,30 @@ function Thread({
   const loadOlder = useChat((s) => s.loadOlder);
   const sendMessage = useChat((s) => s.sendMessage);
   const deleteMessage = useChat((s) => s.deleteMessage);
+  const reactToMessage = useChat((s) => s.reactToMessage);
   const emitTyping = useChat((s) => s.emitTyping);
 
   const [text, setText] = useState("");
   const [files, setFiles] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(0);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const [pickerFor, setPickerFor] = useState<string | null>(null);
+  const [voiceMode, setVoiceMode] = useState(false);
+  // Ovoz yozish faqat xavfsiz kontekstda (HTTPS yoki localhost) mumkin
+  const [canRecord, setCanRecord] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastCount = useRef(0);
+
+  useEffect(() => {
+    setCanRecord(
+      typeof window !== "undefined" &&
+        window.isSecureContext &&
+        typeof navigator !== "undefined" &&
+        !!navigator.mediaDevices?.getUserMedia
+    );
+  }, []);
 
   // yangi xabar kelganda pastga surish
   useEffect(() => {
@@ -298,7 +322,9 @@ function Thread({
     if (!t && files.length === 0) return;
     setText("");
     setFiles([]);
-    sendMessage(conv.id, t, files);
+    const rid = replyTo?.id;
+    setReplyTo(null);
+    sendMessage(conv.id, t, files, rid);
   };
 
   const onPick = async (list: FileList | null) => {
@@ -313,10 +339,36 @@ function Thread({
     }
   };
 
+  // ovozli xabar — yozib bo'lgach darhol yuboriladi
+  const onVoice = async (file: File) => {
+    setVoiceMode(false);
+    setUploading((u) => u + 1);
+    const { attachment, error } = await uploadAttachment(file);
+    setUploading((u) => u - 1);
+    if (attachment) {
+      const rid = replyTo?.id;
+      setReplyTo(null);
+      sendMessage(conv.id, "", [attachment], rid);
+    } else toast.error(error || "Ovozli xabar yuborilmadi");
+  };
+
   const canDelete = (senderId: string) =>
     senderId === meId ||
     role === "admin" ||
     (meta.isGroup && role === "teacher");
+
+  const previewOf = (m: ChatMessage): string => {
+    if (m.body) return m.body;
+    const a = m.attachments[0];
+    if (!a) return "";
+    return a.kind === "image"
+      ? "🖼 Rasm"
+      : a.kind === "audio"
+      ? "🎧 Ovozli xabar"
+      : a.kind === "video"
+      ? "🎬 Video"
+      : "📎 Fayl";
+  };
 
   const typingNames = Object.values(typing ?? {}).map((t) => t.name);
   const busy = !text.trim() && files.length === 0;
@@ -350,7 +402,10 @@ function Thread({
       </div>
 
       {/* Xabarlar */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+      <div
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-4"
+        onClick={() => pickerFor && setPickerFor(null)}
+      >
         {hasMore && (
           <div className="mb-3 text-center">
             <button
@@ -379,72 +434,171 @@ function Thread({
               const showName =
                 meta.isGroup && !mine && (!prev || prev.senderId !== m.senderId);
               const deletable = canDelete(m.senderId);
+              const replySender = m.replyTo
+                ? userById.get(m.replyTo.senderId)
+                : undefined;
               return (
                 <div
                   key={m.id}
                   className={cn(
-                    "group flex items-end gap-1.5",
+                    "group flex items-end gap-1",
                     mine ? "justify-end" : "justify-start"
                   )}
                 >
-                  {mine && deletable && (
-                    <DeleteButton onClick={() => setPendingDelete(m.id)} />
+                  {mine && (
+                    <MsgActions
+                      m={m}
+                      mine
+                      meId={meId}
+                      deletable={deletable}
+                      pickerOpen={pickerFor === m.id}
+                      onTogglePicker={() =>
+                        setPickerFor((p) => (p === m.id ? null : m.id))
+                      }
+                      onReact={(emoji) => {
+                        reactToMessage(conv.id, m.id, emoji);
+                        setPickerFor(null);
+                      }}
+                      onReply={() => setReplyTo(m)}
+                      onDelete={() => setPendingDelete(m.id)}
+                    />
                   )}
                   <div
                     className={cn(
-                      "max-w-[78%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",
-                      mine
-                        ? "rounded-br-md bg-accent text-accent-ink"
-                        : "rounded-bl-md bg-elevated text-ink"
+                      "flex max-w-[78%] flex-col",
+                      mine ? "items-end" : "items-start"
                     )}
                   >
-                    {showName && (
-                      <p className="mb-0.5 text-[11px] font-semibold text-accent">
-                        {sender?.name ?? "—"}
-                      </p>
-                    )}
-                    {m.attachments.length > 0 && (
-                      <div className="mb-1 space-y-1.5">
-                        {m.attachments.map((a) =>
-                          a.kind === "image" && a.url ? (
-                            <a
-                              key={a.id}
-                              href={a.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="block"
-                            >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={a.url}
-                                alt={a.name}
-                                className="max-h-64 w-full rounded-lg object-cover"
-                              />
-                            </a>
-                          ) : (
-                            <AttachmentChip
-                              key={a.id}
-                              attachment={a}
-                              className="bg-surface/90"
-                            />
-                          )
-                        )}
-                      </div>
-                    )}
-                    {m.body && (
-                      <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                    )}
-                    <p
+                    <div
                       className={cn(
-                        "mt-0.5 text-right text-[10px]",
-                        mine ? "text-accent-ink/70" : "text-faint"
+                        "rounded-2xl px-3.5 py-2 text-sm shadow-sm",
+                        mine
+                          ? "rounded-br-md bg-accent text-accent-ink"
+                          : "rounded-bl-md bg-elevated text-ink"
                       )}
                     >
-                      {clock(m.createdAt)}
-                    </p>
+                      {showName && (
+                        <p className="mb-0.5 text-[11px] font-semibold text-accent">
+                          {sender?.name ?? "—"}
+                        </p>
+                      )}
+                      {m.replyTo && (
+                        <div
+                          className={cn(
+                            "mb-1.5 rounded-lg border-l-2 px-2 py-1 text-[12px]",
+                            mine
+                              ? "border-accent-ink/50 bg-black/10 text-accent-ink/90"
+                              : "border-accent/60 bg-accent-soft/50 text-muted"
+                          )}
+                        >
+                          <span className="block font-semibold">
+                            {replySender?.name ?? "Xabar"}
+                          </span>
+                          <span className="line-clamp-2 break-words">
+                            {m.replyTo.preview || "—"}
+                          </span>
+                        </div>
+                      )}
+                      {m.attachments.length > 0 && (
+                        <div className="mb-1 space-y-1.5">
+                          {m.attachments.map((a) =>
+                            a.kind === "image" && a.url ? (
+                              <a
+                                key={a.id}
+                                href={a.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={a.url}
+                                  alt={a.name}
+                                  className="max-h-64 w-full rounded-lg object-cover"
+                                />
+                              </a>
+                            ) : a.kind === "audio" && a.url ? (
+                              <VoiceMessage
+                                key={a.id}
+                                src={a.url}
+                                name={a.name}
+                                className="w-[240px] max-w-full"
+                              />
+                            ) : (
+                              <AttachmentChip
+                                key={a.id}
+                                attachment={a}
+                                className="bg-surface/90"
+                              />
+                            )
+                          )}
+                        </div>
+                      )}
+                      {m.body && (
+                        <p className="whitespace-pre-wrap break-words">
+                          {m.body}
+                        </p>
+                      )}
+                      <p
+                        className={cn(
+                          "mt-0.5 text-right text-[10px]",
+                          mine ? "text-accent-ink/70" : "text-faint"
+                        )}
+                      >
+                        {clock(m.createdAt)}
+                      </p>
+                    </div>
+
+                    {/* reaksiya chiplari */}
+                    {m.reactions.length > 0 && (
+                      <div
+                        className={cn(
+                          "mt-1 flex flex-wrap gap-1",
+                          mine ? "justify-end" : "justify-start"
+                        )}
+                      >
+                        {m.reactions.map((r) => {
+                          const reacted = meId ? r.userIds.includes(meId) : false;
+                          return (
+                            <button
+                              key={r.emoji}
+                              onClick={() =>
+                                reactToMessage(conv.id, m.id, r.emoji)
+                              }
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[12px] transition-colors",
+                                reacted
+                                  ? "border-accent/40 bg-accent-soft text-accent"
+                                  : "border-border bg-surface text-muted hover:bg-elevated"
+                              )}
+                            >
+                              <span>{r.emoji}</span>
+                              <span className="text-[11px] font-semibold">
+                                {r.userIds.length}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                  {!mine && deletable && (
-                    <DeleteButton onClick={() => setPendingDelete(m.id)} />
+                  {!mine && (
+                    <MsgActions
+                      m={m}
+                      mine={false}
+                      meId={meId}
+                      deletable={deletable}
+                      pickerOpen={pickerFor === m.id}
+                      onTogglePicker={() =>
+                        setPickerFor((p) => (p === m.id ? null : m.id))
+                      }
+                      onReact={(emoji) => {
+                        reactToMessage(conv.id, m.id, emoji);
+                        setPickerFor(null);
+                      }}
+                      onReply={() => setReplyTo(m)}
+                      onDelete={() => setPendingDelete(m.id)}
+                    />
                   )}
                 </div>
               );
@@ -458,6 +612,28 @@ function Thread({
         )}
         <div ref={bottomRef} />
       </div>
+
+      {/* Javob berish paneli */}
+      {replyTo && (
+        <div className="flex items-center gap-2 border-t border-border bg-elevated/40 px-3 py-2">
+          <CornerUpLeft className="h-4 w-4 shrink-0 text-accent" />
+          <div className="min-w-0 flex-1 border-l-2 border-accent/60 pl-2">
+            <p className="truncate text-[12px] font-semibold text-ink">
+              {userById.get(replyTo.senderId)?.name ?? "Xabar"}
+            </p>
+            <p className="truncate text-[12px] text-muted">
+              {previewOf(replyTo)}
+            </p>
+          </div>
+          <button
+            onClick={() => setReplyTo(null)}
+            aria-label="Bekor qilish"
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-faint hover:bg-elevated hover:text-danger"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Tanlangan fayllar */}
       {(files.length > 0 || uploading > 0) && (
@@ -500,50 +676,74 @@ function Thread({
 
       {/* Yozish */}
       <div className="border-t border-border p-3">
-        <div className="flex items-end gap-2">
-          <button
-            onClick={() => fileRef.current?.click()}
-            aria-label="Fayl biriktirish"
-            title="Fayl biriktirish"
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border text-muted transition-colors hover:bg-elevated hover:text-accent"
-          >
-            <Paperclip className="h-[18px] w-[18px]" />
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              onPick(e.target.files);
-              e.target.value = "";
-            }}
-          />
-          <textarea
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              emitTyping(conv.id);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            rows={1}
-            placeholder="Xabar yozing..."
-            className="max-h-32 min-h-[40px] flex-1 resize-none rounded-xl border border-border bg-elevated/50 px-3.5 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-accent/50"
-          />
-          <button
-            onClick={send}
-            disabled={busy}
-            aria-label="Yuborish"
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-accent-ink transition-opacity disabled:opacity-40"
-          >
-            <Send className="h-[18px] w-[18px]" />
-          </button>
-        </div>
+        {voiceMode ? (
+          <div className="flex items-center gap-2">
+            <VoiceRecorder onRecorded={onVoice} className="flex-1" />
+            <button
+              onClick={() => setVoiceMode(false)}
+              aria-label="Bekor qilish"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border text-muted transition-colors hover:bg-elevated hover:text-danger"
+            >
+              <X className="h-[18px] w-[18px]" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-end gap-2">
+            <button
+              onClick={() => fileRef.current?.click()}
+              aria-label="Fayl biriktirish"
+              title="Fayl biriktirish"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border text-muted transition-colors hover:bg-elevated hover:text-accent"
+            >
+              <Paperclip className="h-[18px] w-[18px]" />
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                onPick(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <textarea
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value);
+                emitTyping(conv.id);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              rows={1}
+              placeholder="Xabar yozing..."
+              className="max-h-32 min-h-[40px] flex-1 resize-none rounded-xl border border-border bg-elevated/50 px-3.5 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-accent/50"
+            />
+            {busy && canRecord ? (
+              <button
+                onClick={() => setVoiceMode(true)}
+                aria-label="Ovozli xabar"
+                title="Ovozli xabar"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border text-muted transition-colors hover:bg-elevated hover:text-accent"
+              >
+                <Mic className="h-[18px] w-[18px]" />
+              </button>
+            ) : (
+              <button
+                onClick={send}
+                disabled={busy}
+                aria-label="Yuborish"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-accent-ink transition-opacity disabled:opacity-40"
+              >
+                <Send className="h-[18px] w-[18px]" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <ConfirmDialog
@@ -561,15 +761,91 @@ function Thread({
   );
 }
 
-function DeleteButton({ onClick }: { onClick: () => void }) {
+/** Har bir xabar yonidagi hover amallari: reaksiya · javob · o'chirish. */
+function MsgActions({
+  m,
+  mine,
+  meId,
+  deletable,
+  pickerOpen,
+  onTogglePicker,
+  onReact,
+  onReply,
+  onDelete,
+}: {
+  m: ChatMessage;
+  mine: boolean;
+  meId: string;
+  deletable: boolean;
+  pickerOpen: boolean;
+  onTogglePicker: () => void;
+  onReact: (emoji: string) => void;
+  onReply: () => void;
+  onDelete: () => void;
+}) {
   return (
-    <button
-      onClick={onClick}
-      aria-label="Xabarni o'chirish"
-      className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-faint opacity-0 transition-opacity hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+    <div
+      className={cn(
+        "relative flex shrink-0 items-center gap-0.5 self-center opacity-0 transition-opacity group-hover:opacity-100",
+        pickerOpen && "opacity-100",
+        mine ? "order-first" : "order-last"
+      )}
     >
-      <Trash2 className="h-4 w-4" />
-    </button>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onTogglePicker();
+        }}
+        aria-label="Reaksiya"
+        className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:bg-elevated hover:text-accent"
+      >
+        <SmilePlus className="h-4 w-4" />
+      </button>
+      <button
+        onClick={onReply}
+        aria-label="Javob berish"
+        className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:bg-elevated hover:text-accent"
+      >
+        <CornerUpLeft className="h-4 w-4" />
+      </button>
+      {deletable && (
+        <button
+          onClick={onDelete}
+          aria-label="Xabarni o'chirish"
+          className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:bg-danger/10 hover:text-danger"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
+
+      {pickerOpen && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            "absolute bottom-full z-20 mb-1 flex items-center gap-1 rounded-full border border-border bg-surface px-2 py-1 shadow-lift",
+            mine ? "right-0" : "left-0"
+          )}
+        >
+          {REACTIONS.map((emoji) => {
+            const reacted = m.reactions.some(
+              (r) => r.emoji === emoji && meId && r.userIds.includes(meId)
+            );
+            return (
+              <button
+                key={emoji}
+                onClick={() => onReact(emoji)}
+                className={cn(
+                  "grid h-7 w-7 place-items-center rounded-full text-[16px] transition-transform hover:scale-125",
+                  reacted && "bg-accent-soft"
+                )}
+              >
+                {emoji}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -289,12 +289,34 @@ export function sConversation(
 }
 
 export function sMessage(m: MessageDoc & { createdAt: Date }): ChatMessage {
+  // group individual reaction rows into { emoji, userIds[] }
+  const byEmoji = new Map<string, string[]>();
+  for (const r of (m.reactions ?? []) as RawReaction[]) {
+    const arr = byEmoji.get(r.emoji) ?? [];
+    arr.push(id(r.userId));
+    byEmoji.set(r.emoji, arr);
+  }
+  const rt = m.replyTo as
+    | { messageId?: unknown; senderId?: unknown; preview?: string }
+    | undefined;
   return {
     id: id(m._id),
     conversationId: id(m.conversationId),
     senderId: id(m.senderId),
     body: m.body ?? "",
     attachments: ((m.attachments ?? []) as RawAttachment[]).map(sAttachment),
+    reactions: Array.from(byEmoji.entries()).map(([emoji, userIds]) => ({
+      emoji,
+      userIds,
+    })),
+    replyTo:
+      rt && rt.messageId
+        ? {
+            messageId: id(rt.messageId),
+            senderId: id(rt.senderId),
+            preview: rt.preview ?? "",
+          }
+        : undefined,
     createdAt: iso(m.createdAt)!,
   };
 }

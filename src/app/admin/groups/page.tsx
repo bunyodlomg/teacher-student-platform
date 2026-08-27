@@ -2,6 +2,7 @@
 
 import { PageHeader } from "@/components/app/PageHeader";
 import { ManageMembersModal } from "@/components/app/ManageMembersModal";
+import { EditGroupModal } from "@/components/app/EditGroupModal";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Textarea } from "@/components/ui/Field";
@@ -12,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { Group } from "@/lib/types";
 import { Aurora, Stagger, StaggerItem, SpotlightCard } from "@/components/motion";
 import { useData } from "@/store/data";
-import { Plus, Users } from "lucide-react";
+import { Plus, Settings2, Users } from "lucide-react";
 import { useState } from "react";
 
 export default function AdminGroups() {
@@ -33,6 +34,8 @@ export default function AdminGroups() {
 
   // member management (shared modal)
   const [editing, setEditing] = useState<Group | null>(null);
+  // details edit / delete (shared modal)
+  const [editingDetails, setEditingDetails] = useState<Group | null>(null);
 
   const create = async () => {
     if (!name.trim() || !subject.trim() || !teacherId || busy) return;
@@ -98,12 +101,22 @@ export default function AdminGroups() {
                   {g.studentIds.length} o'quvchi · {groupAssignments} topshiriq
                 </span>
               </div>
-              <button
-                onClick={() => setEditing(g)}
-                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-bg/40 px-3 py-2 text-[13px] font-medium text-muted transition-colors hover:border-accent/40 hover:text-ink"
-              >
-                <Users className="h-4 w-4" /> O'quvchilarni boshqarish
-              </button>
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => setEditing(g)}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-bg/40 px-3 py-2 text-[13px] font-medium text-muted transition-colors hover:border-accent/40 hover:text-ink"
+                >
+                  <Users className="h-4 w-4" /> O'quvchilar
+                </button>
+                <button
+                  onClick={() => setEditingDetails(g)}
+                  aria-label="Guruhni tahrirlash"
+                  title="Tahrirlash / o'chirish"
+                  className="grid h-[38px] w-[42px] shrink-0 place-items-center rounded-xl border border-border bg-bg/40 text-muted transition-colors hover:border-accent/40 hover:text-ink"
+                >
+                  <Settings2 className="h-4 w-4" />
+                </button>
+              </div>
             </SpotlightCard>
             </StaggerItem>
           );
@@ -169,6 +182,12 @@ export default function AdminGroups() {
         group={editing}
         open={!!editing}
         onClose={() => setEditing(null)}
+      />
+
+      <EditGroupModal
+        group={editingDetails}
+        open={!!editingDetails}
+        onClose={() => setEditingDetails(null)}
       />
     </div>
   );

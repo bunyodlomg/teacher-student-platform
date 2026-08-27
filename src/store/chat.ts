@@ -56,9 +56,15 @@ interface ChatState {
   sendMessage: (
     convId: string,
     body: string,
-    attachments?: Attachment[]
+    attachments?: Attachment[],
+    replyToId?: string
   ) => Promise<void>;
   deleteMessage: (convId: string, messageId: string) => Promise<void>;
+  reactToMessage: (
+    convId: string,
+    messageId: string,
+    emoji: string
+  ) => Promise<void>;
   emitTyping: (convId: string) => void;
   markRead: (convId: string) => Promise<void>;
   startDirect: (userId: string) => Promise<string | null>;
@@ -184,6 +190,23 @@ export const useChat = create<ChatState>()((set, get) => ({
         }
       );
 
+      // xabar yangilandi (reaksiya qo'shildi/olib tashlandi)
+      socket.on("chat:message-updated", (p: { message: ChatMessage }) => {
+        const msg = p.message;
+        set((st) => {
+          const list = st.messagesByConv[msg.conversationId];
+          if (!list) return {};
+          return {
+            messagesByConv: {
+              ...st.messagesByConv,
+              [msg.conversationId]: list.map((m) =>
+                m.id === msg.id ? msg : m
+              ),
+            },
+          };
+        });
+      });
+
       // xabar o'chirildi
       socket.on(
         "chat:message-deleted",
@@ -283,13 +306,14 @@ export const useChat = create<ChatState>()((set, get) => ({
     }
   },
 
-  sendMessage: async (convId, body, attachments) => {
+  sendMessage: async (convId, body, attachments, replyToId) => {
     const text = body.trim();
     const files = attachments ?? [];
     if (!text && files.length === 0) return;
     const { ok, data } = await postJSON(`/api/chat/${convId}/messages`, {
       body: text,
       attachments: files,
+      replyToId,
     });
     if (ok && data.message) {
       // socket echo ham keladi, lekin darhol ko'rsatamiz (id bo'yicha dedupe)
@@ -334,6 +358,63 @@ export const useChat = create<ChatState>()((set, get) => ({
       });
     } catch {
       /* socket voqeasi holatni baribir moslashtiradi */
+    }
+  },
+
+  reactToMessage: async (convId, messageId, emoji) => {
+    const meId = useSession.getState().currentUserId;
+    // optimistik toggle (server + socket keyin moslashtiradi)
+    if (meId) {
+      set((st) => {
+        const list = st.messagesByConv[convId];
+        if (!list) return {};
+        return {
+          messagesByConv: {
+            ...st.messagesByConv,
+            [convId]: list.map((m) => {
+              if (m.id !== messageId) return m;
+              const existing = m.reactions.find((r) => r.emoji === emoji);
+              let reactions = m.reactions;
+              if (existing) {
+                const has = existing.userIds.includes(meId);
+                reactions = m.reactions
+                  .map((r) =>
+                    r.emoji === emoji
+                      ? {
+                          ...r,
+                          userIds: has
+                            ? r.userIds.filter((u) => u !== meId)
+                            : [...r.userIds, meId],
+                        }
+                      : r
+                  )
+                  .filter((r) => r.userIds.length > 0);
+              } else {
+                reactions = [...m.reactions, { emoji, userIds: [meId] }];
+              }
+              return { ...m, reactions };
+            }),
+          },
+        };
+      });
+    }
+    const { ok, data } = await postJSON(
+      `/api/chat/messages/${messageId}/react`,
+      { emoji }
+    );
+    if (ok && data.message) {
+      set((st) => {
+        const list = st.messagesByConv[convId];
+        if (!list) return {};
+        return {
+          messagesByConv: {
+            ...st.messagesByConv,
+            [convId]: list.map((m) =>
+              m.id === data.message.id ? data.message : m
+            ),
+          },
+        };
+      });
     }
   },
 

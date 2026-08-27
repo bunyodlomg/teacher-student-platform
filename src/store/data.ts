@@ -173,6 +173,13 @@ interface DataState {
     groupId: string,
     studentIds: string[]
   ) => Promise<{ ok: boolean; error?: string }>;
+  /** Edit a group's name/subject/description (owner teacher or admin). */
+  updateGroup: (
+    groupId: string,
+    data: { name?: string; subject?: string; description?: string }
+  ) => Promise<{ ok: boolean; error?: string }>;
+  /** Delete a group and its scoped content (owner teacher or admin). */
+  deleteGroup: (groupId: string) => Promise<{ ok: boolean; error?: string }>;
 }
 
 async function postJSON(url: string, body?: unknown) {
@@ -282,6 +289,20 @@ export const useData = create<DataState>()((set, get) => ({
         );
         socket.on("test:attempt-updated", (a: TestAttempt) =>
           set((st) => ({ attempts: upsertById(st.attempts, a) }))
+        );
+        socket.on("group:updated", (g: Group) =>
+          set((st) =>
+            st.groups.some((x) => x.id === g.id)
+              ? { groups: upsertById(st.groups, g) }
+              : {}
+          )
+        );
+        socket.on("group:deleted", (payload: { id: string }) =>
+          set((st) => ({
+            groups: st.groups.filter((g) => g.id !== payload.id),
+            posts: st.posts.filter((p) => p.groupId !== payload.id),
+            tests: st.tests.filter((t) => t.groupId !== payload.id),
+          }))
         );
         // Group membership changed elsewhere (admin added/removed me, or
         // changed a roster). Rejoin socket rooms with fresh membership and
@@ -636,6 +657,40 @@ export const useData = create<DataState>()((set, get) => ({
         return { ok: false, error: data?.error || "Saqlashda xatolik" };
       if (data.group)
         set((st) => ({ groups: upsertById(st.groups, data.group) }));
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Tarmoq xatosi" };
+    }
+  },
+
+  updateGroup: async (groupId, payload) => {
+    try {
+      const res = await fetch(`/api/groups/${groupId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok)
+        return { ok: false, error: data?.error || "Saqlashda xatolik" };
+      if (data.group)
+        set((st) => ({ groups: upsertById(st.groups, data.group) }));
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Tarmoq xatosi" };
+    }
+  },
+
+  deleteGroup: async (groupId) => {
+    try {
+      const res = await fetch(`/api/groups/${groupId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { ok: false, error: data?.error || "Xatolik" };
+      set((st) => ({ groups: st.groups.filter((g) => g.id !== groupId) }));
       return { ok: true };
     } catch {
       return { ok: false, error: "Tarmoq xatosi" };

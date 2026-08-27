@@ -18,12 +18,15 @@ interface Body {
 }
 
 /**
- * Create a group. Any authenticated user may create one:
+ * Create a group. Only teachers and admins may create one:
  *  - a teacher becomes the group's owner automatically;
- *  - a student/admin must pick a teacher, and a student creator auto-joins.
+ *  - an admin must pick a teacher.
+ * Students cannot create groups.
  */
 export const POST = withAuth(async (req: Request) => {
   const me = await requireUser();
+  if (me.role === "student")
+    return err("O'quvchilar guruh yarata olmaydi", 403);
 
   let b: Body;
   try {
@@ -59,13 +62,6 @@ export const POST = withAuth(async (req: Request) => {
       .lean()
       .exec();
     studentIds = valid.map((u) => u._id);
-  }
-  // a student creator joins their own group
-  if (
-    me.role === "student" &&
-    !studentIds.some((id) => id.toString() === me._id.toString())
-  ) {
-    studentIds.push(me._id);
   }
 
   const group = await Group.create({

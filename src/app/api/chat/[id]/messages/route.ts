@@ -89,7 +89,7 @@ export const GET = withAuth(
 export const POST = withAuth(
   async (req: Request, ctx: { params: { id: string } }) => {
     const me = await requireUser();
-    let b: { body?: string; attachments?: unknown };
+    let b: { body?: string; attachments?: unknown; replyToId?: string };
     try {
       b = await req.json();
     } catch {
@@ -106,6 +106,24 @@ export const POST = withAuth(
     if (!(await canAccessConversation({ _id: me._id, role: me.role }, conv)))
       return forbidden();
 
+    // Javob berilayotgan xabar — shu suhbatga tegishli bo'lsagina qabul qilamiz.
+    let replyTo:
+      | { messageId: unknown; senderId: unknown; preview: string }
+      | undefined;
+    if (b.replyToId) {
+      const parent = await Message.findById(b.replyToId).lean().exec();
+      if (parent && parent.conversationId.toString() === conv._id.toString()) {
+        replyTo = {
+          messageId: parent._id,
+          senderId: parent.senderId,
+          preview: previewFor(
+            parent.body ?? "",
+            (parent.attachments ?? []) as Attachment[]
+          ).slice(0, 140),
+        };
+      }
+    }
+
     const myId = sid(me._id);
     const now = new Date();
     const msg = await Message.create({
@@ -113,6 +131,7 @@ export const POST = withAuth(
       senderId: me._id,
       body,
       attachments,
+      replyTo,
     });
 
     // Suhbat oldindan ko'rinishini yangilaymiz + yuboruvchi uchun "o'qildi".

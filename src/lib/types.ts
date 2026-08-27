@@ -242,11 +242,20 @@ export interface ChatConversation {
   unread: number;
 }
 
+/** Javob berilgan xabar suratи. */
+export interface ChatReplyPreview {
+  messageId: string;
+  senderId: string;
+  preview: string;
+}
+
 export interface ChatMessage {
   id: string;
   conversationId: string;
   senderId: string;
   body: string;
   attachments: Attachment[];
+  reactions: Reaction[];
+  replyTo?: ChatReplyPreview;
   createdAt: string;
 }

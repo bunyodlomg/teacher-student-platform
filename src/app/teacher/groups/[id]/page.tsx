@@ -2,6 +2,7 @@
 
 import { GroupHero } from "@/components/app/GroupHero";
 import { ManageMembersModal } from "@/components/app/ManageMembersModal";
+import { EditGroupModal } from "@/components/app/EditGroupModal";
 import { PostCard } from "@/components/feed/PostCard";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -16,7 +17,7 @@ import {
 import { dueLabel } from "@/lib/utils";
 import { useFocusPost } from "@/lib/useFocusPost";
 import { useData } from "@/store/data";
-import { BookOpen, Plus, Users } from "lucide-react";
+import { BookOpen, Plus, Settings2, Users } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -30,6 +31,7 @@ export default function TeacherGroup() {
 
   const [composer, setComposer] = useState(false);
   const [members, setMembers] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const group = getGroup(groups, id);
   const feed = useMemo(() => postsForGroup(posts, id), [posts, id]);
@@ -53,6 +55,9 @@ export default function TeacherGroup() {
         group={group}
         action={
           <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
+              <Settings2 className="h-4 w-4" /> Sozlash
+            </Button>
             <Button variant="secondary" size="sm" onClick={() => setMembers(true)}>
               <Users className="h-4 w-4" /> O'quvchilar
             </Button>
@@ -141,6 +146,13 @@ export default function TeacherGroup() {
         group={members ? group : null}
         open={members}
         onClose={() => setMembers(false)}
+      />
+
+      <EditGroupModal
+        group={editing ? group : null}
+        open={editing}
+        onClose={() => setEditing(false)}
+        redirectTo="/teacher/classes"
       />
     </div>
   );

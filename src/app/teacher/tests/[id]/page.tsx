@@ -106,7 +106,8 @@ export default function TeacherTestDetail() {
     else toast.error(res.error || "Xatolik");
   };
 
-  const exportCsv = () => {
+  const exportExcel = async () => {
+    const XLSX = await import("xlsx");
     const head = [
       "№",
       "Ism-familiya",
@@ -121,36 +122,51 @@ export default function TeacherTestDetail() {
       "Qoida buzish",
       "Holat",
     ];
-    const lines = rows.map((r, i) =>
-      [
-        i + 1,
-        r.u?.name ?? "—",
-        group?.name ?? "—",
-        r.a.submittedAt ? formatDateTime(r.a.submittedAt) : "—",
-        r.a.correctCount,
-        r.a.totalCount,
-        r.a.score,
-        r.a.maxScore,
-        `${r.pct}%`,
-        minutesBetween(r.a.startedAt, r.a.submittedAt),
-        r.a.violations,
-        r.a.status === "in_progress"
-          ? "Ishlamoqda"
-          : r.a.status === "auto_submitted"
-          ? "Vaqt tugadi"
-          : "Topshirilgan",
-      ]
-        .map((c) => `"${String(c).replace(/"/g, '""')}"`)
-        .join(",")
-    );
-    const csv = "﻿" + [head.join(","), ...lines].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${test.title}-natijalar.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const body = rows.map((r, i) => [
+      i + 1,
+      r.u?.name ?? "—",
+      group?.name ?? "—",
+      r.a.submittedAt ? formatDateTime(r.a.submittedAt) : "—",
+      r.a.correctCount,
+      r.a.totalCount,
+      r.a.score,
+      r.a.maxScore,
+      r.pct / 100, // foiz — Excel format sifatida
+      minutesBetween(r.a.startedAt, r.a.submittedAt),
+      r.a.violations,
+      r.a.status === "in_progress"
+        ? "Ishlamoqda"
+        : r.a.status === "auto_submitted"
+        ? "Vaqt tugadi"
+        : "Topshirilgan",
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet([head, ...body]);
+    // ustun kengliklari
+    ws["!cols"] = [
+      { wch: 4 },
+      { wch: 24 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 7 },
+      { wch: 6 },
+      { wch: 6 },
+      { wch: 6 },
+      { wch: 8 },
+      { wch: 8 },
+      { wch: 12 },
+      { wch: 14 },
+    ];
+    // "Foiz" ustunini foiz formatida ko'rsatamiz (I ustuni)
+    for (let i = 0; i < body.length; i++) {
+      const cell = ws[XLSX.utils.encode_cell({ r: i + 1, c: 8 })];
+      if (cell) cell.z = "0%";
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Natijalar");
+    const safe = test.title.replace(/[\\/:*?"<>|]+/g, "-").slice(0, 80);
+    XLSX.writeFile(wb, `${safe}-natijalar.xlsx`);
   };
 
   return (
@@ -220,8 +236,8 @@ export default function TeacherTestDetail() {
           Natijalar
         </h2>
         {rows.length > 0 && (
-          <Button variant="secondary" size="sm" onClick={exportCsv}>
-            <Download className="h-4 w-4" /> CSV yuklab olish
+          <Button variant="secondary" size="sm" onClick={exportExcel}>
+            <Download className="h-4 w-4" /> Excel yuklab olish
           </Button>
         )}
       </div>
