@@ -29,20 +29,49 @@ function fmtClock(sec: number): string {
   return `${m}:${String(s % 60).padStart(2, "0")}`;
 }
 
+export interface ExamHandlers {
+  saveAnswer: (questionId: string, data: { optionId?: string; text?: string }) => void;
+  submit: (
+    answers: { questionId: string; optionId?: string; text?: string }[],
+    violations: number
+  ) => Promise<{ ok: boolean; error?: string; attempt?: TestAttempt }>;
+  reportViolation: () => void;
+}
+
 export function ExamRunner({
   test,
   questions,
   attempt,
   onFinished,
+  handlers,
+  requireFullscreen = true,
 }: {
   test: Test;
   questions: ExamQuestion[];
   attempt: TestAttempt;
   onFinished: (a: TestAttempt) => void;
+  /** Mehmon rejimi uchun API'ni almashtirish (bo'lmasa — useData ishlatiladi). */
+  handlers?: ExamHandlers;
+  /** To'liq ekran rejimini talab qilish (mehmon/telefon uchun o'chirilishi mumkin). */
+  requireFullscreen?: boolean;
 }) {
-  const saveAnswer = useData((s) => s.saveAnswer);
-  const submitAttempt = useData((s) => s.submitAttempt);
-  const reportViolation = useData((s) => s.reportViolation);
+  const storeSave = useData((s) => s.saveAnswer);
+  const storeSubmit = useData((s) => s.submitAttempt);
+  const storeViol = useData((s) => s.reportViolation);
+  const saveAnswer = handlers
+    ? (_t: string, qid: string, d: { optionId?: string; text?: string }) =>
+        handlers.saveAnswer(qid, d)
+    : storeSave;
+  const submitAttempt = handlers
+    ? (
+        _t: string,
+        payload: { questionId: string; optionId?: string; text?: string }[],
+        viol: number
+      ) => handlers.submit(payload, viol)
+    : storeSubmit;
+  const reportViolation = handlers
+    ? (_t: string) => handlers.reportViolation()
+    : storeViol;
 
   const [answers, setAnswers] = useState<AnswerMap>(() => {
     const m: AnswerMap = {};
@@ -80,7 +109,7 @@ export function ExamRunner({
   const guard = useExamGuard({
     active: true,
     onViolation,
-    requireFullscreen: true,
+    requireFullscreen,
     blockCopy: true,
   });
 
@@ -216,7 +245,7 @@ export function ExamRunner({
       </AnimatePresence>
 
       {/* fullscreen re-enter prompt */}
-      {!guard.fullscreen && (
+      {requireFullscreen && !guard.fullscreen && (
         <div className="flex items-center justify-center gap-3 border-b border-border bg-warning/10 px-4 py-2 text-[13px] text-warning">
           <span className="font-medium">To'liq ekran rejimi talab qilinadi.</span>
           <button

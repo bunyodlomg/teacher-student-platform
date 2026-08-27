@@ -43,6 +43,8 @@ const TestSchema = new Schema(
     shuffleQuestions: { type: Boolean, default: true },
     shuffleOptions: { type: Boolean, default: true },
     maxViolations: { type: Number, default: 3 },
+    // ochiq (loginsiz) test — istalgan mehmon havola orqali ishlay oladi
+    isPublic: { type: Boolean, default: false, index: true },
     status: {
       type: String,
       enum: ["draft", "open", "closed"],

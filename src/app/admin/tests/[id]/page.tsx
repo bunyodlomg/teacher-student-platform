@@ -3,7 +3,7 @@
 import { TestDetail } from "@/components/tests/TestDetail";
 import { useParams } from "next/navigation";
 
-export default function TeacherTestDetail() {
+export default function AdminTestDetail() {
   const id = useParams().id as string;
-  return <TestDetail testId={id} basePath="/teacher" />;
+  return <TestDetail testId={id} basePath="/admin" />;
 }

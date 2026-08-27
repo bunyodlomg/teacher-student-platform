@@ -169,6 +169,8 @@ export interface Test {
   shuffleOptions: boolean;
   /** fokus yo'qolishi shu songa yetganda ogohlantiriladi */
   maxViolations: number;
+  /** ochiq (loginsiz) test — mehmonlar havola/landing orqali ishlay oladi */
+  isPublic: boolean;
   status: TestStatus;
   opensAt?: string;
   closesAt?: string;
@@ -200,10 +202,20 @@ export interface AttemptAnswer {
   correct?: boolean;
 }
 
+export interface GuestInfo {
+  name: string;
+  grade?: string;
+  phone?: string;
+}
+
 export interface TestAttempt {
   id: string;
   testId: string;
   studentId: string;
+  /** loginи yo'q (mehmon) urinishimi */
+  isGuest?: boolean;
+  /** mehmon ma'lumotlari (ism/sinf/telefon) */
+  guest?: GuestInfo;
   startedAt: string;
   /** startedAt + durationMin — server hisoblaydi */
   endsAt: string;

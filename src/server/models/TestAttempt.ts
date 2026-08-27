@@ -20,10 +20,26 @@ const ServedSchema = new Schema(
   { _id: false }
 );
 
+/** Loginи yo'q (mehmon) ishtirokchining ma'lumotlari. */
+const GuestSchema = new Schema(
+  {
+    name: { type: String, required: true },
+    grade: { type: String, default: "" }, // sinf, masalan "9-A"
+    phone: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 const TestAttemptSchema = new Schema(
   {
     testId: { type: Schema.Types.ObjectId, ref: "Test", required: true, index: true },
+    // ro'yxatdan o'tgan o'quvchi uchun — User id; mehmon uchun sintetik (noyob) id
     studentId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    // mehmon (loginsiz) urinishi
+    isGuest: { type: Boolean, default: false },
+    guest: { type: GuestSchema, default: undefined },
+    // mehmon urinishini himoyalash uchun maxfiy token (answer/submit'da tekshiriladi)
+    guestToken: { type: String },
     startedAt: { type: Date, default: Date.now },
     endsAt: { type: Date, required: true },
     submittedAt: { type: Date },

@@ -1,5 +1,6 @@
 import type { TestDoc } from "./models";
 import type { TestAttemptDoc } from "./models";
+import type { ExamQuestion } from "@/lib/types";
 
 /** Qisqa javoblarni solishtirish uchun normallashtirish. */
 export function normText(s: string | undefined | null): string {
@@ -78,4 +79,45 @@ export function gradeAttempt(
   }
 
   return { score, maxScore, correctCount, totalCount: questions.length };
+}
+
+interface RawOptFull {
+  _id: unknown;
+  text: string;
+}
+interface RawQFull {
+  _id: unknown;
+  type: string;
+  text: string;
+  imageUrl?: string;
+  options?: RawOptFull[];
+  points?: number;
+}
+
+/** Saqlangan tartib (served) bo'yicha xavfsiz (javobsiz) savollarni quradi. */
+export function buildExam(
+  test: { questions?: RawQFull[] },
+  served: { questionId: string; optionIds: string[] }[]
+): ExamQuestion[] {
+  const qById = new Map<string, RawQFull>();
+  for (const q of (test.questions ?? []) as RawQFull[]) qById.set(oid(q._id), q);
+  const out: ExamQuestion[] = [];
+  for (const s of served) {
+    const q = qById.get(s.questionId);
+    if (!q) continue;
+    const optById = new Map<string, RawOptFull>();
+    for (const o of q.options ?? []) optById.set(oid(o._id), o);
+    out.push({
+      id: s.questionId,
+      type: q.type as ExamQuestion["type"],
+      text: q.text,
+      imageUrl: q.imageUrl || undefined,
+      points: q.points ?? 1,
+      options: s.optionIds
+        .map((id) => optById.get(id))
+        .filter((o): o is RawOptFull => !!o)
+        .map((o) => ({ id: oid(o._id), text: o.text })),
+    });
+  }
+  return out;
 }

@@ -259,6 +259,7 @@ export function sTest(
     shuffleQuestions: !!t.shuffleQuestions,
     shuffleOptions: !!t.shuffleOptions,
     maxViolations: t.maxViolations ?? 3,
+    isPublic: !!t.isPublic,
     status: t.status as Test["status"],
     opensAt: iso(t.opensAt),
     closesAt: iso(t.closesAt),
@@ -322,10 +323,22 @@ export function sMessage(m: MessageDoc & { createdAt: Date }): ChatMessage {
 }
 
 export function sTestAttempt(a: TestAttemptDoc): TestAttempt {
+  const guest = a.guest as
+    | { name?: string; grade?: string; phone?: string }
+    | undefined;
   return {
     id: id(a._id),
     testId: id(a.testId),
     studentId: id(a.studentId),
+    isGuest: !!a.isGuest,
+    guest:
+      a.isGuest && guest
+        ? {
+            name: guest.name ?? "",
+            grade: guest.grade || undefined,
+            phone: guest.phone || undefined,
+          }
+        : undefined,
     startedAt: iso(a.startedAt)!,
     endsAt: iso(a.endsAt)!,
     submittedAt: iso(a.submittedAt),

@@ -33,6 +33,7 @@ interface Body {
   shuffleQuestions?: boolean;
   shuffleOptions?: boolean;
   maxViolations?: number;
+  isPublic?: boolean;
   questions?: InQuestion[];
 }
 
@@ -123,6 +124,7 @@ export const POST = withAuth(async (req: Request) => {
     shuffleQuestions: b.shuffleQuestions !== false,
     shuffleOptions: b.shuffleOptions !== false,
     maxViolations,
+    isPublic: b.isPublic === true,
     status: "draft",
     questions,
   });

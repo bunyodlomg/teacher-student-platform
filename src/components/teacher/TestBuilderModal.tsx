@@ -87,7 +87,12 @@ export function TestBuilderModal({
   const createTest = useData((s) => s.createTest);
 
   const myGroups = useMemo(
-    () => (user ? groupsForUser(groups, user.id, "teacher") : []),
+    () =>
+      user
+        ? user.role === "admin"
+          ? groups
+          : groupsForUser(groups, user.id, "teacher")
+        : [],
     [groups, user]
   );
 
@@ -97,6 +102,7 @@ export function TestBuilderModal({
   const [durationMin, setDurationMin] = useState(30);
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [shuffleOptions, setShuffleOptions] = useState(true);
+  const [isPublic, setIsPublic] = useState(false);
   const [questions, setQuestions] = useState<DraftQ[]>([blankQ("single")]);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -183,6 +189,7 @@ export function TestBuilderModal({
       durationMin,
       shuffleQuestions,
       shuffleOptions,
+      isPublic,
       questions: questions.map(toNewQuestion),
     };
     const res = await createTest(payload);
@@ -191,7 +198,10 @@ export function TestBuilderModal({
       toast.success(`Test yaratildi — ${questions.length} savol`);
       reset();
       onClose();
-      if (res.testId) router.push(`/teacher/tests/${res.testId}`);
+      if (res.testId) {
+        const base = user?.role === "admin" ? "/admin" : "/teacher";
+        router.push(`${base}/tests/${res.testId}`);
+      }
     } else {
       setError(res.error || "Saqlashda xatolik");
     }
@@ -201,6 +211,7 @@ export function TestBuilderModal({
     setTitle("");
     setSubject("");
     setDurationMin(30);
+    setIsPublic(false);
     setQuestions([blankQ("single")]);
     setError("");
     setImportNote("");
@@ -290,6 +301,33 @@ export function TestBuilderModal({
             Variantlarni aralashtirish
           </label>
         </div>
+
+        {/* ochiq test — loginsiz ishlash */}
+        <label
+          className={cn(
+            "flex cursor-pointer items-start gap-3 rounded-2xl border p-3.5 transition-colors",
+            isPublic
+              ? "border-accent/40 bg-accent-soft/50"
+              : "border-border bg-surface"
+          )}
+        >
+          <input
+            type="checkbox"
+            checked={isPublic}
+            onChange={(e) => setIsPublic(e.target.checked)}
+            className="mt-0.5 accent-[rgb(var(--accent))]"
+          />
+          <span>
+            <span className="block text-[14px] font-semibold text-ink">
+              Ochiq test (loginsiz)
+            </span>
+            <span className="block text-[12px] leading-relaxed text-muted">
+              Havola yoki bosh sahifa orqali istalgan o'quvchi login qilmasдан
+              ishlay oladi. Boshlashda ism-familiya, sinf va telefon so'raladi;
+              natijalari saqlanadi.
+            </span>
+          </span>
+        </label>
 
         {/* import — 2 bosqichda */}
         <div className="rounded-2xl border border-dashed border-accent/30 bg-accent-soft/40 p-4">

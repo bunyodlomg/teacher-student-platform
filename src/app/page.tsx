@@ -16,15 +16,93 @@ import {
   BellRing,
   BookOpen,
   ClipboardCheck,
+  Clock,
   GraduationCap,
   LayoutGrid,
   LineChart,
+  ListChecks,
+  Play,
   ShieldCheck,
   Users,
 } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 const ease = [0.16, 1, 0.3, 1] as const;
+
+interface PublicTestMeta {
+  id: string;
+  title: string;
+  subject: string;
+  description: string;
+  durationMin: number;
+  questionCount: number;
+}
+
+/** Landing'да loginsiz ishlash mumkin bo'lgan ochiq testlar. */
+function PublicTests() {
+  const [tests, setTests] = useState<PublicTestMeta[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/public/tests")
+      .then((r) => (r.ok ? r.json() : { tests: [] }))
+      .then((d) => alive && setTests(d.tests ?? []))
+      .catch(() => {})
+      .finally(() => alive && setLoaded(true));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (!loaded || tests.length === 0) return null;
+
+  return (
+    <section id="testlar" className="relative mx-auto max-w-6xl px-6 py-12">
+      <div className="max-w-2xl">
+        <p className="eyebrow">Ochiq testlar</p>
+        <h2 className="mt-3 font-display text-[28px] font-medium leading-tight tracking-[-0.01em] text-ink sm:text-[36px]">
+          Loginsiz ishlash mumkin
+        </h2>
+        <p className="mt-3 text-[15px] leading-relaxed text-muted">
+          Testни tanlang, ism-familiyangizni kiriting va boshlang.
+        </p>
+      </div>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {tests.map((t) => (
+          <Link key={t.id} href={`/t/${t.id}`}>
+            <GlassCard className="h-full p-5 transition-transform hover:-translate-y-1">
+              <p className="eyebrow">{t.subject || "Online test"}</p>
+              <h3 className="mt-1.5 font-display text-lg font-medium text-ink">
+                {t.title}
+              </h3>
+              {t.description && (
+                <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-muted">
+                  {t.description}
+                </p>
+              )}
+              <div className="mt-4 flex items-center gap-4 text-[12px] text-muted">
+                <span className="flex items-center gap-1.5">
+                  <ListChecks className="h-3.5 w-3.5 text-faint" />
+                  {t.questionCount} savol
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-faint" />
+                  {t.durationMin} daqiqa
+                </span>
+              </div>
+              <span className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-accent px-3 py-1.5 text-[13px] font-semibold text-accent-ink shadow-glow-accent">
+                <Play className="h-3.5 w-3.5" /> Boshlash
+              </span>
+            </GlassCard>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 const features = [
   {
@@ -213,6 +291,9 @@ export default function Landing() {
           </GlassCard>
         </motion.div>
       </section>
+
+      {/* ochiq testlar — bo'lsa ko'rsatiladi */}
+      <PublicTests />
 
       {/* features */}
       <section id="imkoniyatlar" className="relative mx-auto max-w-6xl px-6 py-16">

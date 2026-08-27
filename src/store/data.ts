@@ -35,6 +35,7 @@ export interface NewTestInput {
   shuffleQuestions?: boolean;
   shuffleOptions?: boolean;
   maxViolations?: number;
+  isPublic?: boolean;
   questions: NewTestQuestion[];
 }
 

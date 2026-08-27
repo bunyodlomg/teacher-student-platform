@@ -51,6 +51,7 @@ function navFor(role: Role): NavItem[] {
       { href: "/admin", label: "Umumiy", icon: Home },
       { href: "/admin/users", label: "Foydalanuvchilar", icon: Users },
       { href: "/admin/groups", label: "Guruhlar", icon: LayoutGrid },
+      { href: "/admin/tests", label: "Testlar", icon: FileCheck2 },
       { href: "/admin/chat", label: "Suhbatlar", icon: MessageCircle },
     ];
   }
