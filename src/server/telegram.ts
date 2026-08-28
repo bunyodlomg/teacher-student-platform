@@ -170,6 +170,15 @@ export function startTelegramBot() {
     console.log("> Telegram bot: TELEGRAM_BOT_TOKEN yo'q — bot o'chiq");
     return;
   }
+  // Bot faqat production'da (VPS) polling qiladi. Lokal `npm run dev` da o'chiq
+  // turadi — aks holda ikki nusxa bir tokenni poll qilib Telegram 409 beradi.
+  // Lokalda ataylab sinash uchun: TELEGRAM_FORCE_POLL=1
+  const isProd = process.env.NODE_ENV === "production";
+  const force = /^(1|true|yes)$/i.test(process.env.TELEGRAM_FORCE_POLL || "");
+  if (!isProd && !force) {
+    console.log("> Telegram bot: lokal (dev) — polling o'chiq");
+    return;
+  }
   if (polling) return;
   polling = true;
   console.log("> Telegram bot ishga tushdi (long-polling)");
