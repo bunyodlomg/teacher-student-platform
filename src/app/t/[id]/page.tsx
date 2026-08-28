@@ -71,9 +71,15 @@ export default function PublicTest() {
     };
   }, [id]);
 
+  const phoneOk = phone.replace(/\D/g, "").length >= 7;
+
   const start = async () => {
     if (!name.trim()) {
       setStartErr("Ism-familiyani kiriting");
+      return;
+    }
+    if (!phoneOk) {
+      setStartErr("Ota-ona telefon raqamini kiriting");
       return;
     }
     setStarting(true);
@@ -217,22 +223,25 @@ export default function PublicTest() {
                     autoFocus
                   />
                 </Field>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Sinf" hint="ixtiyoriy">
-                    <Input
-                      value={grade}
-                      onChange={(e) => setGrade(e.target.value)}
-                      placeholder="9-A"
-                    />
-                  </Field>
-                  <Field label="Telefon" hint="ixtiyoriy">
-                    <Input
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+998 90 123 45 67"
-                    />
-                  </Field>
-                </div>
+                <Field
+                  label="Ota-ona telefoni"
+                  hint="natija shu raqamga (Telegram) yuboriladi"
+                >
+                  <Input
+                    type="tel"
+                    inputMode="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+998 90 123 45 67"
+                  />
+                </Field>
+                <Field label="Sinf" hint="ixtiyoriy">
+                  <Input
+                    value={grade}
+                    onChange={(e) => setGrade(e.target.value)}
+                    placeholder="9-A"
+                  />
+                </Field>
               </div>
 
               {startErr && (
@@ -245,7 +254,7 @@ export default function PublicTest() {
                 size="lg"
                 className="mt-5 w-full"
                 onClick={start}
-                disabled={starting || !name.trim()}
+                disabled={starting || !name.trim() || !phoneOk}
               >
                 {starting ? (
                   <Loader2 className="h-5 w-5 animate-spin" />

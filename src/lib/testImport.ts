@@ -10,9 +10,20 @@ const norm = (s: unknown) =>
 
 // ustun sarlavhalarini moslashtirish (o'zbek + ingliz)
 const HEADER = {
-  text: ["savol", "question", "matn", "text", "q"],
+  text: ["savol", "savollar", "question", "questions", "matn", "text", "q"],
   type: ["tur", "type", "turi"],
-  answer: ["javob", "answer", "correct", "togri", "to'g'ri", "kalit", "key"],
+  answer: [
+    "javob",
+    "javoblar",
+    "answer",
+    "answers",
+    "correct",
+    "togri",
+    "to'g'ri",
+    "togrijavob",
+    "kalit",
+    "key",
+  ],
   points: ["ball", "points", "point", "ochko"],
   image: ["rasm", "image", "img", "rasmurl"],
   // variant ustunlari A,B,C,D yoki variant1..

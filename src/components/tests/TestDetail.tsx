@@ -19,6 +19,7 @@ import {
   Globe,
   Lock,
   Play,
+  Send,
   Timer,
   Trophy,
   Users,
@@ -63,6 +64,7 @@ export function TestDetail({
   const [fresh, setFresh] = useState<TestAttempt[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [notifying, setNotifying] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -195,6 +197,39 @@ export function TestDetail({
     XLSX.writeFile(wb, `${safe}-natijalar.xlsx`);
   };
 
+  const notifyParents = async () => {
+    setNotifying(true);
+    try {
+      const res = await fetch(`/api/tests/${test.id}/notify`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(d?.error || "Yuborib bo'lmadi");
+        return;
+      }
+      if (d.sent > 0) {
+        toast.success(
+          `${d.sent} ta ota-onaga yuborildi` +
+            (d.noLink ? ` · ${d.noLink} tasi botga ulanmagan` : "")
+        );
+      } else if (d.noLink > 0) {
+        toast.error(
+          `Hech kim botga ulanmagan (${d.noLink} ta ishtirokchi). Ota-onalar botga /start bosib raqamini ulashi kerak.`
+        );
+      } else if (d.noPhone > 0 && d.matched === 0) {
+        toast.error("Ishtirokchilarda telefon raqami yo'q.");
+      } else {
+        toast.error("Yuborish uchun yakunlangan natija topilmadi.");
+      }
+    } catch {
+      toast.error("Tarmoq xatosi");
+    } finally {
+      setNotifying(false);
+    }
+  };
+
   return (
     <div>
       <Link
@@ -290,9 +325,21 @@ export function TestDetail({
           Natijalar
         </h2>
         {rows.length > 0 && (
-          <Button variant="secondary" size="sm" onClick={exportExcel}>
-            <Download className="h-4 w-4" /> Excel yuklab olish
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={notifyParents}
+              disabled={notifying}
+              title="Bog'langan ota-onalarga natijani Telegram orqali yuborish"
+            >
+              <Send className="h-4 w-4" />
+              {notifying ? "Yuborilmoqda…" : "Ota-onaga yuborish"}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={exportExcel}>
+              <Download className="h-4 w-4" /> Excel yuklab olish
+            </Button>
+          </div>
         )}
       </div>
 

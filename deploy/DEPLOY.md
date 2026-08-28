@@ -156,6 +156,8 @@ ADMIN_NAME="Administrator"
 ADMIN_EMAIL="admin"
 ADMIN_PASSWORD="<kuchli parol>"
 PORT=3000
+# Ixtiyoriy — ota-onalarga test natijasini yuborish (BotFather tokeni)
+TELEGRAM_BOT_TOKEN=""
 ```
 
 Kuchli `JWT_SECRET` yaratish:

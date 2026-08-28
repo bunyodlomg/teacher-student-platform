@@ -20,3 +20,5 @@ export { Conversation } from "./Conversation";
 export type { ConversationDoc } from "./Conversation";
 export { Message } from "./Message";
 export type { MessageDoc } from "./Message";
+export { TelegramLink } from "./TelegramLink";
+export type { TelegramLinkDoc } from "./TelegramLink";

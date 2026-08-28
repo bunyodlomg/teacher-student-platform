@@ -10,6 +10,7 @@ import { getUserFromToken, COOKIE_NAME } from "./src/server/auth";
 import { connectDB } from "./src/server/db";
 import { Group, Conversation } from "./src/server/models";
 import { canAccessConversation } from "./src/server/chat";
+import { startTelegramBot } from "./src/server/telegram";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = parseInt(process.env.PORT || "3000", 10);
@@ -26,6 +27,9 @@ app.prepare().then(async () => {
     console.error("MongoDB ulanmadi:", e);
     process.exit(1);
   }
+
+  // Telegram bot (token bo'lsa) — ota-onalarga natija yuborish uchun
+  startTelegramBot();
 
   const server = createServer((req, res) => {
     // Yuklangan fayllarni diskdan xizmat qilamiz — Next production build'dan

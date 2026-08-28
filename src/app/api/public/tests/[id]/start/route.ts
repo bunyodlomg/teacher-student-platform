@@ -40,6 +40,9 @@ export const POST = async (req: Request, ctx: { params: { id: string } }) => {
   const grade = (b.grade || "").trim();
   const phone = (b.phone || "").trim();
   if (!name) return err("Ism-familiyani kiriting");
+  if (!phone) return err("Ota-ona telefon raqamini kiriting");
+  if (phone.replace(/\D/g, "").length < 7)
+    return err("Telefon raqami to'liq emas");
 
   await connectDB();
   let test;
