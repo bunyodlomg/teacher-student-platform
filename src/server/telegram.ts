@@ -177,6 +177,12 @@ export function startTelegramBot() {
 }
 
 async function pollLoop() {
+  const me = await tg("getMe", {});
+  if (me?.ok)
+    console.log(`> Telegram bot ulandi: @${me.result?.username}`);
+  else
+    console.error("> Telegram bot: getMe muvaffaqiyatsiz — token noto'g'ri?", me);
+
   let offset = 0;
   // Eski, to'planib qolgan update'larni tashlab yuboramiz
   const first = await tg("getUpdates", { timeout: 0, offset: -1 });
@@ -188,6 +194,11 @@ async function pollLoop() {
   while (true) {
     const data = await tg("getUpdates", { timeout: 30, offset });
     if (!data?.ok) {
+      // 409 = boshqa nusxa ham getUpdates so'rayapti (ikkита server ishlayapti)
+      if (data?.error_code)
+        console.error(
+          `[telegram] getUpdates ${data.error_code}: ${data.description}`
+        );
       await new Promise((r) => setTimeout(r, 3000));
       continue;
     }
