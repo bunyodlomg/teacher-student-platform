@@ -13,6 +13,8 @@ interface Body {
   tags?: string[];
   attachments?: { kind: string; name: string; meta?: string; url?: string }[];
   pinned?: boolean;
+  /** shu darsni loginsiz havola orqali ulashish */
+  isPublic?: boolean;
 }
 
 function canManage(
@@ -48,6 +50,7 @@ export const PATCH = withAuth(
     if (Array.isArray(b.tags)) post.tags = b.tags as never;
     if (Array.isArray(b.attachments)) post.attachments = b.attachments as never;
     if (typeof b.pinned === "boolean") post.pinned = b.pinned;
+    if (typeof b.isPublic === "boolean") post.isPublic = b.isPublic;
     await post.save();
 
     // keep a linked assignment's shared fields in sync

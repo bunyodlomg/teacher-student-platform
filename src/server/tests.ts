@@ -1,3 +1,4 @@
+import type { HydratedDocument } from "mongoose";
 import type { TestDoc } from "./models";
 import type { TestAttemptDoc } from "./models";
 import type { ExamQuestion } from "@/lib/types";
@@ -120,4 +121,51 @@ export function buildExam(
     });
   }
   return out;
+}
+
+/** Klientdan keladigan buzilish turlari (boshqasi "blur" deb qabul qilinadi). */
+export const VIOLATION_TYPES = [
+  "blur",
+  "fullscreen",
+  "copy",
+  "shortcut",
+  "second-window",
+  "print",
+] as const;
+
+const MAX_VIOLATION_LOG = 50;
+
+/**
+ * Buzilishni qayd etadi va limitdan oshsa urinishni majburiy yopadi.
+ *
+ * Qaror serverda qabul qilinadi — klient JS'ni o'zgartirib chetlab o'tolmaydi.
+ * `true` qaytsa urinish yopilgan (baholangan) bo'ladi.
+ */
+export async function enforceViolationLimit(
+  test: TestDoc,
+  attempt: HydratedDocument<TestAttemptDoc>,
+  type: string
+): Promise<boolean> {
+  attempt.violations = (attempt.violations ?? 0) + 1;
+  const log = (attempt.violationLog ?? []) as unknown as {
+    type: string;
+    at: Date;
+  }[];
+  log.push({ type, at: new Date() });
+  attempt.set("violationLog", log.slice(-MAX_VIOLATION_LOG));
+
+  const limit = test.maxViolations ?? 3;
+  const over = limit > 0 && attempt.violations >= limit;
+
+  if (over) {
+    const g = gradeAttempt(test, attempt);
+    attempt.set(g);
+    attempt.status = "auto_submitted";
+    attempt.forcedSubmit = true;
+    attempt.submittedAt = new Date();
+    attempt.markModified("answers");
+  }
+
+  await attempt.save();
+  return over;
 }

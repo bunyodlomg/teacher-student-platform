@@ -11,6 +11,7 @@ import type {
   TestAttemptDoc,
   ConversationDoc,
   MessageDoc,
+  MaterialGuestDoc,
 } from "./models";
 import type {
   AppNotification,
@@ -20,12 +21,14 @@ import type {
   ChatMessage,
   Comment,
   Group,
+  MaterialGuest,
   Post,
   Question,
   Submission,
   Test,
   TestAttempt,
   User,
+  ViolationKind,
 } from "@/lib/types";
 
 const id = (v: unknown): string => {
@@ -79,6 +82,7 @@ export function sGroup(g: GroupDoc): Group {
     teacherId: id(g.teacherId),
     studentIds: (g.studentIds ?? []).map(id),
     description: g.description,
+    materialsPublic: !!g.materialsPublic,
   };
 }
 
@@ -121,6 +125,7 @@ export function sPost(p: PostDoc & { createdAt: Date }): Post {
     tags: p.tags && p.tags.length ? [...p.tags] : undefined,
     pinned: p.pinned,
     assignmentId: p.assignmentId ? id(p.assignmentId) : undefined,
+    isPublic: !!p.isPublic,
     attachments: ((p.attachments ?? []) as RawAttachment[]).map(sAttachment),
     reactions: Array.from(byEmoji.entries()).map(([emoji, userIds]) => ({
       emoji,
@@ -348,11 +353,36 @@ export function sTestAttempt(a: TestAttemptDoc): TestAttempt {
     correctCount: a.correctCount ?? 0,
     totalCount: a.totalCount ?? 0,
     violations: a.violations ?? 0,
+    violationLog: (a.violationLog ?? []).map((v) => ({
+      type: v.type as ViolationKind,
+      at: iso(v.at)!,
+    })),
+    forcedSubmit: !!a.forcedSubmit,
     answers: (a.answers ?? []).map((an) => ({
       questionId: an.questionId,
       optionId: an.optionId ?? undefined,
       text: an.text ?? undefined,
       correct: typeof an.correct === "boolean" ? an.correct : undefined,
+    })),
+  };
+}
+
+export function sMaterialGuest(g: MaterialGuestDoc): MaterialGuest {
+  return {
+    id: id(g._id),
+    groupId: id(g.groupId),
+    label: g.label,
+    name: g.name,
+    grade: g.grade || undefined,
+    opens: g.opens ?? 0,
+    downloads: g.downloads ?? 0,
+    firstSeenAt: iso(g.createdAt)!,
+    lastSeenAt: iso(g.lastSeenAt) ?? iso(g.createdAt)!,
+    events: (g.events ?? []).map((e) => ({
+      action: e.action as "open" | "download",
+      postId: e.postId ? id(e.postId) : undefined,
+      fileName: e.fileName || undefined,
+      at: iso(e.at)!,
     })),
   };
 }

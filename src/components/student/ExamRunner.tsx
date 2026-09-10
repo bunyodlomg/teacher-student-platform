@@ -16,8 +16,18 @@ import {
   Loader2,
   Maximize,
   ShieldAlert,
+  Lock,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+const VIOLATION_MESSAGE: Record<string, string> = {
+  blur: "Boshqa oyna/ilovaga o'tish qayd etildi!",
+  fullscreen: "To'liq ekrandan chiqdingiz — bu qayd etildi.",
+  copy: "Nusxalash/joylashtirish bloklangan.",
+  shortcut: "Taqiqlangan klavish birikmasi qayd etildi.",
+  "second-window": "Test boshqa oynada ham ochilgan — bu qayd etildi.",
+  print: "Chop etishga urinish qayd etildi.",
+};
 
 interface AnswerMap {
   [questionId: string]: { optionId?: string; text?: string };
@@ -35,7 +45,11 @@ export interface ExamHandlers {
     answers: { questionId: string; optionId?: string; text?: string }[],
     violations: number
   ) => Promise<{ ok: boolean; error?: string; attempt?: TestAttempt }>;
-  reportViolation: () => void;
+  reportViolation: (type: ViolationType) => Promise<{
+    violations?: number;
+    autoSubmitted?: boolean;
+    attempt?: TestAttempt;
+  }>;
 }
 
 export function ExamRunner({
@@ -70,7 +84,7 @@ export function ExamRunner({
       ) => handlers.submit(payload, viol)
     : storeSubmit;
   const reportViolation = handlers
-    ? (_t: string) => handlers.reportViolation()
+    ? (_t: string, type: ViolationType) => handlers.reportViolation(type)
     : storeViol;
 
   const [answers, setAnswers] = useState<AnswerMap>(() => {
@@ -90,20 +104,26 @@ export function ExamRunner({
   const submittedRef = useRef(false);
   const textTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
+  const maxViolations = test.maxViolations ?? 3;
+  // guard onViolation'dan keyin quriladi — chiqish uchun ref orqali murojaat
+  const guardRef = useRef<{ exitFullscreen: () => Promise<void> } | null>(null);
+
   const onViolation = useCallback(
-    (type: ViolationType) => {
+    async (type: ViolationType) => {
       setViolations((v) => v + 1);
-      reportViolation(test.id);
-      setWarn(
-        type === "fullscreen"
-          ? "To'liq ekrandan chiqdingiz — bu qayd etildi."
-          : type === "copy"
-          ? "Nusxalash bloklangan."
-          : "Boshqa oyna/ilovaga o'tish qayd etildi!"
-      );
+      setWarn(VIOLATION_MESSAGE[type] ?? VIOLATION_MESSAGE.blur);
       window.setTimeout(() => setWarn(""), 3500);
+
+      // Limit serverda tekshiriladi — klientni o'zgartirib chetlab bo'lmaydi
+      const res = await reportViolation(test.id, type);
+      if (typeof res.violations === "number") setViolations(res.violations);
+      if (res.autoSubmitted && res.attempt && !submittedRef.current) {
+        submittedRef.current = true;
+        await guardRef.current?.exitFullscreen();
+        onFinished(res.attempt);
+      }
     },
-    [reportViolation, test.id]
+    [reportViolation, test.id, onFinished]
   );
 
   const guard = useExamGuard({
@@ -111,7 +131,12 @@ export function ExamRunner({
     onViolation,
     requireFullscreen,
     blockCopy: true,
+    examKey: `${test.id}-${attempt.id}`,
   });
+  guardRef.current = guard;
+
+  // fullscreen talab qilinsa va brauzer qo'llab-quvvatlasa — savollar yopiladi
+  const locked = requireFullscreen && guard.supported && !guard.fullscreen;
 
   const submit = useCallback(
     async (auto = false) => {
@@ -176,6 +201,7 @@ export function ExamRunner({
   // klaviatura: ← → navigatsiya, A/B/C/D yoki 1-9 variant tanlash
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (locked) return;
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key === "ArrowLeft") setIdx((i) => Math.max(0, i - 1));
@@ -195,7 +221,7 @@ export function ExamRunner({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idx, questions]);
+  }, [idx, questions, locked]);
 
   const q = questions[idx];
   const low = remaining <= 60;
@@ -215,9 +241,9 @@ export function ExamRunner({
         {violations > 0 && (
           <span
             className="inline-flex items-center gap-1 rounded-lg bg-danger/10 px-2 py-1 text-[12px] font-semibold text-danger"
-            title="Fokus yo'qolishi qayd etildi"
+            title="Qoida buzilishi qayd etildi"
           >
-            <ShieldAlert className="h-4 w-4" /> {violations}
+            <ShieldAlert className="h-4 w-4" /> {violations}/{maxViolations}
           </span>
         )}
         <div
@@ -244,16 +270,13 @@ export function ExamRunner({
         )}
       </AnimatePresence>
 
-      {/* fullscreen re-enter prompt */}
-      {requireFullscreen && !guard.fullscreen && (
-        <div className="flex items-center justify-center gap-3 border-b border-border bg-warning/10 px-4 py-2 text-[13px] text-warning">
-          <span className="font-medium">To'liq ekran rejimi talab qilinadi.</span>
-          <button
-            onClick={guard.requestFullscreen}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-warning/20 px-2.5 py-1 font-semibold"
-          >
-            <Maximize className="h-3.5 w-3.5" /> Kirish
-          </button>
+      {/* brauzer fullscreen'ni qo'llab-quvvatlamasa (masalan iOS Safari) —
+          majburlab bo'lmaydi, shunchaki ogohlantiramiz */}
+      {requireFullscreen && !guard.supported && (
+        <div className="flex items-center justify-center gap-2 border-b border-border bg-warning/10 px-4 py-2 text-center text-[12px] text-warning">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          Bu brauzer to&apos;liq ekranni qo&apos;llab-quvvatlamaydi. Oyna
+          almashtirish baribir qayd etiladi.
         </div>
       )}
 
@@ -383,6 +406,40 @@ export function ExamRunner({
           </Button>
         )}
       </footer>
+
+      {/* To'liq ekrandan chiqilsa — savollar yopiladi. Vaqt to'xtamaydi,
+          shu sabab chetlab o'tish foydasiz bo'ladi. */}
+      <AnimatePresence>
+        {locked && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-bg/95 px-6 text-center backdrop-blur-xl"
+          >
+            <span className="grid h-16 w-16 place-items-center rounded-2xl bg-danger/10 text-danger">
+              <Lock className="h-8 w-8" />
+            </span>
+            <div>
+              <h2 className="font-display text-xl font-semibold text-ink">
+                To&apos;liq ekran rejimi talab qilinadi
+              </h2>
+              <p className="mx-auto mt-2 max-w-sm text-[14px] leading-relaxed text-muted">
+                Savollar yopildi. Davom etish uchun to&apos;liq ekranga
+                qayting — vaqt hisobi to&apos;xtamaydi.
+              </p>
+            </div>
+            <Button size="lg" onClick={guard.requestFullscreen}>
+              <Maximize className="h-5 w-5" /> To&apos;liq ekranga qaytish
+            </Button>
+            <p className="text-[12px] font-medium text-danger">
+              Qoida buzilishi: {violations}/{maxViolations}
+              {maxViolations > 0 &&
+                " — limitga yetsa test avtomatik yakunlanadi"}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <ConfirmDialog
         open={confirmOpen}

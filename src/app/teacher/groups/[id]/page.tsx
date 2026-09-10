@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ProgressBar } from "@/components/ui/Progress";
 import { Composer } from "@/components/teacher/Composer";
+import { PublicMaterialsCard } from "@/components/teacher/PublicMaterialsCard";
 import { Aurora, Stagger, StaggerItem, SpotlightCard } from "@/components/motion";
 import {
   getGroup,
@@ -97,6 +98,11 @@ export default function TeacherGroup() {
         {/* Topshiriqlar ko'rinishi */}
         <aside className="lg:col-span-2">
           <h2 className="mb-3 font-display text-base font-semibold text-ink">
+            Ulashish
+          </h2>
+          <PublicMaterialsCard group={group} />
+
+          <h2 className="mb-3 mt-8 font-display text-base font-semibold text-ink">
             Topshiriqlar
           </h2>
           <Stagger className="space-y-3" inView>

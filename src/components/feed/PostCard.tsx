@@ -12,6 +12,8 @@ import {
   BookOpen,
   ClipboardList,
   Eye,
+  Globe,
+  Link2,
   Megaphone,
   MessageCircle,
   MoreHorizontal,
@@ -31,6 +33,7 @@ import { Modal } from "../ui/Modal";
 import { EditPostModal } from "./EditPostModal";
 import { GlassCard } from "@/components/motion";
 import { ClickSpark } from "@/components/reactbits";
+import { toast } from "@/store/toast";
 
 const REACTIONS = ["❤️", "🔥", "💡", "👏", "🎧", "✍️"];
 
@@ -54,6 +57,7 @@ export function PostCard({
   const toggleReaction = useData((s) => s.toggleReaction);
   const addComment = useData((s) => s.addComment);
   const deletePost = useData((s) => s.deletePost);
+  const setPostPublic = useData((s) => s.setPostPublic);
   const viewPost = useData((s) => s.viewPost);
 
   const author = getUser(users, post.authorId);
@@ -75,6 +79,37 @@ export function PostCard({
   const TypeIcon = meta.icon;
   const canManage = role === "admin" || userId === post.authorId;
   const isAuthor = userId === post.authorId;
+  // faqat fayli bor dars/e'lonni loginsiz ulashish mantiqiy
+  const canShare =
+    canManage && post.type !== "assignment" && post.attachments.length > 0;
+
+  const publicLink =
+    typeof window === "undefined" ? "" : `${window.location.origin}/m/p/${post.id}`;
+
+  const togglePublic = async () => {
+    const next = !post.isPublic;
+    const r = await setPostPublic(post.id, next);
+    if (!r.ok) return toast.error(r.error || "Saqlanmadi");
+    if (next) {
+      try {
+        await navigator.clipboard.writeText(publicLink);
+        toast.success("Ochiq havola nusxalandi");
+      } catch {
+        toast.success("Dars loginsiz ulashildi");
+      }
+    } else {
+      toast.info("Ochiq ulashish to'xtatildi");
+    }
+  };
+
+  const copyPublicLink = async () => {
+    try {
+      await navigator.clipboard.writeText(publicLink);
+      toast.success("Havola nusxalandi");
+    } catch {
+      toast.error("Nusxalab bo'lmadi");
+    }
+  };
 
   // register a unique view once the card actually scrolls into view
   const cardRef = useRef<HTMLDivElement>(null);
@@ -131,6 +166,11 @@ export function PostCard({
                   <Pin className="h-3 w-3" /> Mahkamlangan
                 </span>
               )}
+              {post.isPublic && (
+                <Badge tone="accent">
+                  <Globe className="h-3 w-3" /> Loginsiz
+                </Badge>
+              )}
             </div>
             <span className="text-[12px] text-faint">
               {relativeTime(post.createdAt)}
@@ -157,7 +197,7 @@ export function PostCard({
                       initial={{ opacity: 0, y: 6, scale: 0.96 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 6, scale: 0.96 }}
-                      className="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-xl border border-border bg-surface p-1 shadow-lift"
+                      className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-xl border border-border bg-surface p-1 shadow-lift"
                     >
                       <button
                         onClick={() => {
@@ -168,6 +208,32 @@ export function PostCard({
                       >
                         <Pencil className="h-4 w-4 text-muted" /> Tahrirlash
                       </button>
+                      {canShare && (
+                        <button
+                          onClick={() => {
+                            setMenuOpen(false);
+                            void togglePublic();
+                          }}
+                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] font-medium text-ink transition-colors hover:bg-elevated"
+                        >
+                          <Globe className="h-4 w-4 shrink-0 text-muted" />
+                          {post.isPublic
+                            ? "Ulashishni to'xtatish"
+                            : "Loginsiz ulashish"}
+                        </button>
+                      )}
+                      {canShare && post.isPublic && (
+                        <button
+                          onClick={() => {
+                            setMenuOpen(false);
+                            void copyPublicLink();
+                          }}
+                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-elevated"
+                        >
+                          <Link2 className="h-4 w-4 text-muted" /> Havolani
+                          nusxalash
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           setMenuOpen(false);

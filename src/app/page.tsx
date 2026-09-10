@@ -24,6 +24,9 @@ import {
   Play,
   ShieldCheck,
   Users,
+  FolderOpen,
+  FileText,
+  ArrowUpRight,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -95,6 +98,92 @@ function PublicTests() {
               </div>
               <span className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-accent px-3 py-1.5 text-[13px] font-semibold text-accent-ink shadow-glow-accent">
                 <Play className="h-3.5 w-3.5" /> Boshlash
+              </span>
+            </GlassCard>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+interface PublicMaterialCard {
+  scope: "g" | "p";
+  id: string;
+  title: string;
+  subject: string;
+  emoji: string;
+  description: string;
+  lessonCount: number;
+  fileCount: number;
+}
+
+/** Landing'da loginsiz ochib bo'ladigan o'quv materiallari. */
+function PublicMaterials() {
+  const [sources, setSources] = useState<PublicMaterialCard[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/public/materials")
+      .then((r) => (r.ok ? r.json() : { sources: [] }))
+      .then((d) => alive && setSources(d.sources ?? []))
+      .catch(() => {})
+      .finally(() => alive && setLoaded(true));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (!loaded || sources.length === 0) return null;
+
+  return (
+    <section id="materiallar" className="relative mx-auto max-w-6xl px-6 py-12">
+      <div className="max-w-2xl">
+        <p className="eyebrow">Ochiq materiallar</p>
+        <h2 className="mt-3 font-display text-[28px] font-medium leading-tight tracking-[-0.01em] text-ink sm:text-[36px]">
+          Darslik va fayllar — loginsiz
+        </h2>
+        <p className="mt-3 text-[15px] leading-relaxed text-muted">
+          Ism-familiyangizni kiriting va guruh materiallarini yuklab oling.
+        </p>
+      </div>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {sources.map((s) => (
+          <Link key={`${s.scope}-${s.id}`} href={`/m/${s.scope}/${s.id}`}>
+            <GlassCard className="h-full p-5 transition-transform hover:-translate-y-1">
+              <div className="flex items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-xl">
+                  {s.emoji}
+                </span>
+                <div className="min-w-0">
+                  <p className="eyebrow">
+                    {s.scope === "p" ? "Bitta dars" : s.subject || "Guruh"}
+                  </p>
+                  <h3 className="mt-1 font-display text-lg font-medium text-ink">
+                    {s.title}
+                  </h3>
+                </div>
+              </div>
+              {s.description && (
+                <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-muted">
+                  {s.description}
+                </p>
+              )}
+              <div className="mt-4 flex items-center gap-4 text-[12px] text-muted">
+                <span className="flex items-center gap-1.5">
+                  <BookOpen className="h-3.5 w-3.5 text-faint" />
+                  {s.lessonCount} dars
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 text-faint" />
+                  {s.fileCount} fayl
+                </span>
+              </div>
+              <span className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-accent px-3 py-1.5 text-[13px] font-semibold text-accent-ink shadow-glow-accent">
+                <FolderOpen className="h-3.5 w-3.5" /> Ochish
+                <ArrowUpRight className="h-3.5 w-3.5" />
               </span>
             </GlassCard>
           </Link>
@@ -294,6 +383,9 @@ export default function Landing() {
 
       {/* ochiq testlar — bo'lsa ko'rsatiladi */}
       <PublicTests />
+
+      {/* ochiq materiallar — bo'lsa ko'rsatiladi */}
+      <PublicMaterials />
 
       {/* features */}
       <section id="imkoniyatlar" className="relative mx-auto max-w-6xl px-6 py-16">

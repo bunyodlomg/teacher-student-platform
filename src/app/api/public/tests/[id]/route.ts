@@ -29,6 +29,7 @@ export const GET = async (
       description: t.description ?? "",
       durationMin: t.durationMin ?? 30,
       questionCount: (t.questions ?? []).length,
+      maxViolations: t.maxViolations ?? 3,
     },
   });
 };

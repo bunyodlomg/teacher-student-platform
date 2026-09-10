@@ -9,6 +9,10 @@ const GroupSchema = new Schema(
     description: { type: String, default: "" },
     teacherId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     studentIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    // guruh materiallari loginsiz (ochiq havola orqali) ko'rinadimi
+    materialsPublic: { type: Boolean, default: false, index: true },
+    // "Kompyuter-N" yorlig'i uchun atomik hisoblagich (mehmonlar soni)
+    guestSeq: { type: Number, default: 0 },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

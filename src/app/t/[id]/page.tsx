@@ -28,6 +28,7 @@ interface Meta {
   description: string;
   durationMin: number;
   questionCount: number;
+  maxViolations: number;
 }
 
 export default function PublicTest() {
@@ -84,6 +85,17 @@ export default function PublicTest() {
     }
     setStarting(true);
     setStartErr("");
+    // fullscreen — faqat foydalanuvchi harakati ichida so'ralishi mumkin
+    try {
+      const el = document.documentElement as HTMLElement & {
+        webkitRequestFullscreen?: () => Promise<void>;
+      };
+      if (el.requestFullscreen)
+        await el.requestFullscreen({ navigationUI: "hide" });
+      else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+    } catch {
+      /* rad etilsa ham davom etamiz — ExamRunner qayta so'raydi */
+    }
     try {
       const res = await fetch(`/api/public/tests/${id}/start`, {
         method: "POST",
@@ -109,11 +121,33 @@ export default function PublicTest() {
       id: meta.id,
       title: meta.title,
       durationMin: meta.durationMin,
+      maxViolations: meta.maxViolations,
     } as unknown as Test;
 
     const handlers: ExamHandlers = {
       saveAnswer: () => {}, // mehmon — topshirishда barcha javob yuboriladi
-      reportViolation: () => {},
+      reportViolation: async (type) => {
+        try {
+          const res = await fetch(`/api/public/tests/${id}/violation`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              attemptId: exam.attempt.id,
+              token: exam.token,
+              type,
+            }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) return {};
+          return {
+            violations: d.violations,
+            autoSubmitted: !!d.autoSubmitted,
+            attempt: d.attempt,
+          };
+        } catch {
+          return {};
+        }
+      },
       submit: async (answers, violations) => {
         try {
           const res = await fetch(`/api/public/tests/${id}/submit`, {
@@ -141,7 +175,6 @@ export default function PublicTest() {
         questions={exam.questions}
         attempt={exam.attempt}
         handlers={handlers}
-        requireFullscreen={false}
         onFinished={(a) => {
           setFinished(a);
           setExam(null);
@@ -263,8 +296,12 @@ export default function PublicTest() {
                 )}
                 Testni boshlash
               </Button>
-              <p className="mt-3 text-center text-[12px] text-faint">
-                Test faqat bir marta topshiriladi. Boshlagach vaqt sanoqda.
+              <p className="mt-3 text-center text-[12px] leading-relaxed text-faint">
+                Test faqat bir marta topshiriladi. Boshlagach vaqt sanoqda va
+                ekran to&apos;liq rejimga o&apos;tadi. Boshqa oynaga
+                o&apos;tish, nusxalash yoki to&apos;liq ekrandan chiqish qayd
+                etiladi — {meta.maxViolations} martadan oshsa test avtomatik
+                yakunlanadi.
               </p>
             </motion.div>
           )

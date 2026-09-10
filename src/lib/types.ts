@@ -61,6 +61,8 @@ export interface Post {
   /** present when type === "assignment" */
   assignmentId?: string;
   pinned?: boolean;
+  /** shared through a login-free public link */
+  isPublic?: boolean;
 }
 
 export interface Assignment {
@@ -104,6 +106,50 @@ export interface Group {
   teacherId: string;
   studentIds: string[];
   description: string;
+  /** the group's materials are readable through a login-free public link */
+  materialsPublic?: boolean;
+}
+
+/** Ochiq materiallar sahifasidagi bitta dars (mehmon ko'radigan shakl). */
+export interface PublicMaterial {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  attachments: Attachment[];
+}
+
+/** Bosh sahifadagi "Ochiq materiallar" kartasi. */
+export interface PublicMaterialSource {
+  /** "g" — butun guruh, "p" — bitta dars */
+  scope: "g" | "p";
+  id: string;
+  title: string;
+  subject: string;
+  emoji: string;
+  description: string;
+  lessonCount: number;
+  fileCount: number;
+}
+
+/** Loginsiz kirgan mehmon — o'qituvchi ko'radigan jurnal yozuvi. */
+export interface MaterialGuest {
+  id: string;
+  groupId: string;
+  /** "Kompyuter-3" */
+  label: string;
+  name: string;
+  grade?: string;
+  opens: number;
+  downloads: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  events: {
+    action: "open" | "download";
+    postId?: string;
+    fileName?: string;
+    at: string;
+  }[];
 }
 
 export type NotificationType =
@@ -208,6 +254,14 @@ export interface GuestInfo {
   phone?: string;
 }
 
+export type ViolationKind =
+  | "blur"
+  | "fullscreen"
+  | "copy"
+  | "shortcut"
+  | "second-window"
+  | "print";
+
 export interface TestAttempt {
   id: string;
   testId: string;
@@ -227,6 +281,10 @@ export interface TestAttempt {
   totalCount: number;
   /** fokus yo'qolishi soni */
   violations: number;
+  /** qoida buzilishlari — turi va vaqti bilan */
+  violationLog?: { type: ViolationKind; at: string }[];
+  /** limitdan oshgani uchun majburiy yopilgan */
+  forcedSubmit?: boolean;
   answers: AttemptAnswer[];
 }
 

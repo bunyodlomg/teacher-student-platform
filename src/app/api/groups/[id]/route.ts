@@ -28,6 +28,8 @@ interface Body {
   name?: string;
   subject?: string;
   description?: string;
+  /** guruh materiallarini loginsiz havola orqali ochish/yopish */
+  materialsPublic?: boolean;
 }
 
 /** Owning teacher or admin only. */
@@ -51,7 +53,7 @@ function affectedIds(group: {
   ];
 }
 
-/** Edit a group's name / subject / description. */
+/** Edit a group's name / subject / description / public-materials flag. */
 export const PATCH = withAuth(
   async (req: Request, ctx: { params: { id: string } }) => {
     const me = await requireUser();
@@ -77,6 +79,8 @@ export const PATCH = withAuth(
       group.subject = b.subject.trim();
     if (typeof b.description === "string")
       group.description = b.description.trim();
+    if (typeof b.materialsPublic === "boolean")
+      group.materialsPublic = b.materialsPublic;
 
     await group.save();
 

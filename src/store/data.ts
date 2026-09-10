@@ -14,6 +14,7 @@ import {
   Test,
   TestAttempt,
   User,
+  ViolationKind,
 } from "@/lib/types";
 import { getSocket } from "@/lib/socket";
 
@@ -94,6 +95,11 @@ interface DataState {
     }
   ) => Promise<{ ok: boolean; error?: string }>;
   deletePost: (postId: string) => Promise<{ ok: boolean; error?: string }>;
+  /** Darsni loginsiz havola orqali ulashish / to'xtatish. */
+  setPostPublic: (
+    postId: string,
+    isPublic: boolean
+  ) => Promise<{ ok: boolean; error?: string }>;
   toggleReaction: (postId: string, emoji: string, userId: string) => Promise<void>;
   addComment: (postId: string, authorId: string, body: string) => Promise<void>;
   /** Register a unique view once the current user has seen a post. */
@@ -142,7 +148,15 @@ interface DataState {
     answers: { questionId: string; optionId?: string; text?: string }[],
     violations: number
   ) => Promise<{ ok: boolean; error?: string; attempt?: TestAttempt }>;
-  reportViolation: (testId: string) => void;
+  /** Qoida buzilishini serverga qayd etadi; limit oshsa server urinishni yopadi. */
+  reportViolation: (
+    testId: string,
+    type: ViolationKind
+  ) => Promise<{
+    violations?: number;
+    autoSubmitted?: boolean;
+    attempt?: TestAttempt;
+  }>;
 
   // ---- notifications ----
   markNotificationRead: (id: string) => Promise<void>;
@@ -177,7 +191,12 @@ interface DataState {
   /** Edit a group's name/subject/description (owner teacher or admin). */
   updateGroup: (
     groupId: string,
-    data: { name?: string; subject?: string; description?: string }
+    data: {
+      name?: string;
+      subject?: string;
+      description?: string;
+      materialsPublic?: boolean;
+    }
   ) => Promise<{ ok: boolean; error?: string }>;
   /** Delete a group and its scoped content (owner teacher or admin). */
   deleteGroup: (groupId: string) => Promise<{ ok: boolean; error?: string }>;
@@ -379,6 +398,25 @@ export const useData = create<DataState>()((set, get) => ({
     }
   },
 
+  setPostPublic: async (postId, isPublic) => {
+    try {
+      const res = await fetch(`/api/posts/${postId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ isPublic }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok)
+        return { ok: false, error: data?.error || "Saqlashda xatolik" };
+      if (data.post)
+        set((st) => ({ posts: upsertById(st.posts, data.post) }));
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Tarmoq xatosi" };
+    }
+  },
+
   deletePost: async (postId) => {
     try {
       const res = await fetch(`/api/posts/${postId}`, {
@@ -574,20 +612,31 @@ export const useData = create<DataState>()((set, get) => ({
     return { ok: false, error: data?.error || "Topshirishda xatolik" };
   },
 
-  reportViolation: (testId) => {
-    postJSON(`/api/tests/${testId}/violation`)
-      .then(({ ok, data }) => {
-        if (ok && typeof data.violations === "number") {
-          set((st) => ({
-            attempts: st.attempts.map((a) =>
-              a.testId === testId && a.status === "in_progress"
-                ? { ...a, violations: data.violations }
-                : a
-            ),
-          }));
-        }
-      })
-      .catch(() => {});
+  reportViolation: async (testId, type) => {
+    try {
+      const { ok, data } = await postJSON(`/api/tests/${testId}/violation`, {
+        type,
+      });
+      if (!ok) return {};
+      if (data.attempt) {
+        set((st) => ({ attempts: upsertById(st.attempts, data.attempt) }));
+      } else if (typeof data.violations === "number") {
+        set((st) => ({
+          attempts: st.attempts.map((a) =>
+            a.testId === testId && a.status === "in_progress"
+              ? { ...a, violations: data.violations }
+              : a
+          ),
+        }));
+      }
+      return {
+        violations: data.violations,
+        autoSubmitted: !!data.autoSubmitted,
+        attempt: data.attempt,
+      };
+    } catch {
+      return {};
+    }
   },
 
   markNotificationRead: async (id) => {

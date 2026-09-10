@@ -433,10 +433,11 @@ export function TestDetail({
                       {r.a.violations > 0 ? (
                         <span
                           className="inline-flex items-center gap-1 text-[12px] font-semibold text-danger"
-                          title="Fokus yo'qolishi / tab almashish"
+                          title={violationSummary(r.a)}
                         >
                           <AlertTriangle className="h-3.5 w-3.5" />
                           {r.a.violations}
+                          {r.a.forcedSubmit && " ⛔"}
                         </span>
                       ) : (
                         <span className="text-[12px] text-success">toza</span>
@@ -450,5 +451,29 @@ export function TestDetail({
         </div>
       )}
     </div>
+  );
+}
+
+const VIOLATION_LABEL: Record<string, string> = {
+  blur: "boshqa oynaga o'tish",
+  fullscreen: "to'liq ekrandan chiqish",
+  copy: "nusxalash",
+  shortcut: "taqiqlangan klavish",
+  "second-window": "ikkinchi oyna",
+  print: "chop etish",
+};
+
+/** Buzilishlarni turlari bo'yicha qisqa matnga yig'adi (tooltip uchun). */
+function violationSummary(a: TestAttempt): string {
+  const log = a.violationLog ?? [];
+  if (log.length === 0) return "Qoida buzilishi qayd etildi";
+  const counts = new Map<string, number>();
+  for (const v of log) counts.set(v.type, (counts.get(v.type) ?? 0) + 1);
+  const parts = Array.from(counts.entries()).map(
+    ([t, n]) => `${VIOLATION_LABEL[t] ?? t} × ${n}`
+  );
+  return (
+    parts.join(", ") +
+    (a.forcedSubmit ? " — limitdan oshgani uchun majburiy yopilgan" : "")
   );
 }

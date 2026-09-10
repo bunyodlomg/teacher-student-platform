@@ -16,6 +16,8 @@ const PostSchema = new Schema(
     body: { type: String, default: "" },
     tags: [{ type: String }],
     pinned: { type: Boolean, default: false },
+    // shu darsni alohida, loginsiz havola orqali ulashish
+    isPublic: { type: Boolean, default: false, index: true },
     assignmentId: { type: Schema.Types.ObjectId, ref: "Assignment" },
     attachments: [AttachmentSchema],
     reactions: [ReactionSchema],

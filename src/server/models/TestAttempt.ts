@@ -30,6 +30,19 @@ const GuestSchema = new Schema(
   { _id: false }
 );
 
+/** Qoida buzilishi turi + vaqti — o'qituvchi nima bo'lganini ko'radi. */
+const ViolationSchema = new Schema(
+  {
+    type: {
+      type: String,
+      enum: ["blur", "fullscreen", "copy", "shortcut", "second-window", "print"],
+      required: true,
+    },
+    at: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const TestAttemptSchema = new Schema(
   {
     testId: { type: Schema.Types.ObjectId, ref: "Test", required: true, index: true },
@@ -53,6 +66,10 @@ const TestAttemptSchema = new Schema(
     correctCount: { type: Number, default: 0 },
     totalCount: { type: Number, default: 0 },
     violations: { type: Number, default: 0 },
+    /** oxirgi 50 ta buzilish — turi bilan */
+    violationLog: [ViolationSchema],
+    /** limitdan oshgani uchun majburiy yopilgan */
+    forcedSubmit: { type: Boolean, default: false },
     answers: [AnswerSchema],
     served: [ServedSchema],
   },
