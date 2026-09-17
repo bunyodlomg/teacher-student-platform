@@ -66,6 +66,8 @@ Ilova **100% real** — klient mock/seed yo'q. Barcha ma'lumot MongoDB'dan API o
 - `src/server/auth.ts` — JWT + cookie, `getSessionUser`.
 - `src/server/notify.ts` — `Notification.create()` + socket push.
 - `src/server/scope.ts` — `accessibleGroupIds`, `loadStateFor`.
+- `src/server/preview.ts` — Word/PowerPoint → PDF (LibreOffice `soffice --headless`), `public/uploads/previews/` ga keshlanadi; `server.ts` `/uploads/preview/<fayl>` ni shu orqali beradi. LibreOffice yo'q bo'lsa 501.
+- `src/components/ui/FileViewer.tsx` — fayllarni **yuklab olmasdan** platforma ichida ko'rish (PDF iframe, Excel/CSV jadval — SheetJS, TXT, media). `AttachmentChip` bosilganda shu oynani ochadi (maktab kompyuterlarida disk to'lmasligi uchun).
 - `src/server/serialize.ts` — Mongoose `lean()` hujjatlarini `src/lib/types.ts` interfeyslariga aylantiradi (`_id` → `id: string`).
 - `src/components/ui/*` — dizayn tizimi.
 - `src/components/app/AppShell.tsx` — sidebar + top bar.

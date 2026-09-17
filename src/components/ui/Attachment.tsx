@@ -2,6 +2,8 @@
 
 import { Attachment, AttachmentKind } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { FileViewer, canPreview } from "@/components/ui/FileViewer";
+import { useState, type ReactNode } from "react";
 import {
   FileText,
   Film,
@@ -55,7 +57,17 @@ export function AttachmentChip({
     </>
   );
 
-  // uploaded documents download on click
+  // Brauzerda ko'rsatib bo'ladigan fayllar yuklab olinmaydi — platforma
+  // ichida ochiladi (maktab kompyuterlarida disk to'lib ketmasligi uchun).
+  if (attachment.url && canPreview(attachment)) {
+    return (
+      <PreviewChip attachment={attachment} className={cls}>
+        {inner}
+      </PreviewChip>
+    );
+  }
+
+  // ko'rib bo'lmaydigan fayllar (zip, …) — yuklab olinadi
   if (attachment.url) {
     return (
       <a
@@ -73,6 +85,34 @@ export function AttachmentChip({
     <button type="button" className={cls}>
       {inner}
     </button>
+  );
+}
+
+function PreviewChip({
+  attachment,
+  className,
+  children,
+}: {
+  attachment: Attachment;
+  className: string;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={cn("w-full", className)}
+        title="Ko'rish"
+      >
+        {children}
+      </button>
+      <FileViewer
+        file={open ? attachment : null}
+        onClose={() => setOpen(false)}
+      />
+    </>
   );
 }
 

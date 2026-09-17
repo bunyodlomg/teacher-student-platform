@@ -42,6 +42,21 @@ apt-get update -y
 # sudo — minimal serverlarda o'rnatilmagan bo'lishi mumkin (skript ichida ishlatiladi)
 apt-get install -y sudo curl git ufw build-essential gnupg ca-certificates lsb-release openssl rsync
 
+
+# LibreOffice (headless) — Word/PowerPoint fayllarini yuklab olmasdan ko'rish
+# uchun PDF'ga aylantiradi. Calibri/Cambria o'rnini bosuvchi shriftlar bilan.
+install_libreoffice() {
+  if command -v soffice >/dev/null; then return 0; fi
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -y
+  apt-get install -y --no-install-recommends \
+    libreoffice-writer-nogui libreoffice-impress-nogui \
+    fonts-dejavu fonts-liberation fonts-crosextra-carlito fonts-crosextra-caladea \
+  || apt-get install -y --no-install-recommends \
+    libreoffice-writer libreoffice-impress fonts-dejavu fonts-liberation
+}
+install_libreoffice || warn "LibreOffice o'rnatilmadi — hujjatlarni ko'rish ishlamaydi (yuklab olish ishlaydi)"
+
 # =====================================================================================
 log "2/10 · Swap (RAM 2 GB dan kam bo'lsa) — next build OOM bo'lmasligi uchun"
 MEM_MB=$(free -m | awk '/^Mem:/{print $2}')

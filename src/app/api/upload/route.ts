@@ -3,6 +3,7 @@ import { AttachmentKind } from "@/lib/types";
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { warmPreview } from "@/server/preview";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,6 +73,8 @@ export const POST = withAuth(async (req: Request) => {
   const dir = join(process.cwd(), "public", "uploads");
   await mkdir(dir, { recursive: true });
   await writeFile(join(dir, fname), buf);
+  // Word/PowerPoint → PDF ko'rinishini fonda tayyorlab qo'yamiz
+  warmPreview(fname);
 
   return json({
     attachment: {

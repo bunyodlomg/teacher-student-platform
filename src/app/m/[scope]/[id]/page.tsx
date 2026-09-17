@@ -5,6 +5,7 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
 import { AttachmentChip } from "@/components/ui/Attachment";
+import { canPreview } from "@/components/ui/FileViewer";
 import { Aurora } from "@/components/motion";
 import { PublicMaterial } from "@/lib/types";
 import { RichContent } from "@/lib/richtext";
@@ -15,6 +16,7 @@ import {
   ArrowLeft,
   BookOpen,
   Download,
+  Eye,
   FolderOpen,
   Loader2,
   Monitor,
@@ -43,8 +45,9 @@ interface Meta {
  * Loginsiz material sahifasi — `/m/g/<guruh>` yoki `/m/p/<dars>`.
  *
  * Fayllar faqat ism kiritilgandan keyin ochiladi: server qurilmaga
- * "Kompyuter-N" yorlig'ini biriktiradi va har bir yuklab olish jurnalga
- * yoziladi, shu sabab kirish anonim bo'lmaydi.
+ * "Kompyuter-N" yorlig'ini biriktiradi va har bir ochish/yuklab olish
+ * jurnalga yoziladi, shu sabab kirish anonim bo'lmaydi. Fayllar yuklab
+ * olinmasdan sahifa ichida ochiladi (FileViewer).
  */
 export default function PublicMaterialsPage() {
   const params = useParams();
@@ -134,7 +137,7 @@ export default function PublicMaterialsPage() {
     };
   }, [scope, id, enter]);
 
-  /** Yuklab olishni jurnalga yozadi — kim nimani olgani o'qituvchiga ko'rinadi. */
+  /** Faylni ochishni jurnalga yozadi — kim nimani ko'rgani o'qituvchiga ko'rinadi. */
   const logDownload = (postId: string, fileName: string) => {
     if (!tokenRef.current) return;
     const url = `/api/public/materials/${scope}/${id}/log`;
@@ -290,7 +293,7 @@ export default function PublicMaterialsPage() {
             <p className="mt-3 flex items-start gap-2 text-[12px] leading-relaxed text-faint">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
               Kirish anonim emas: ismingiz va qurilma nomi (Kompyuter-1,
-              Kompyuter-2 …) bilan birga qaysi faylni yuklab olganingiz
+              Kompyuter-2 …) bilan birga qaysi faylni ochganingiz
               o&apos;qituvchiga ko&apos;rinadi.
             </p>
           </motion.div>
@@ -385,7 +388,11 @@ function MaterialList({
                   <AttachmentChip attachment={a} />
                   {a.url && (
                     <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-faint">
-                      <Download className="h-4 w-4" />
+                      {canPreview(a) ? (
+                        <Eye className="h-4 w-4" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
                     </span>
                   )}
                 </div>

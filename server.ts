@@ -6,6 +6,7 @@ import { Server as IOServer } from "socket.io";
 import { parse as parseCookie } from "cookie";
 import { setIO, room } from "./src/server/io";
 import { serveUpload } from "./src/server/static";
+import { servePreview } from "./src/server/preview";
 import { getUserFromToken, COOKIE_NAME } from "./src/server/auth";
 import { connectDB } from "./src/server/db";
 import { Group, Conversation } from "./src/server/models";
@@ -34,6 +35,11 @@ app.prepare().then(async () => {
   const server = createServer((req, res) => {
     // Yuklangan fayllarni diskdan xizmat qilamiz — Next production build'dan
     // keyin public/uploads'ga qo'shilgan fayllarni bermaydi (404).
+    // Office hujjatlarining PDF ko'rinishi (yuklab olmasdan ko'rish uchun)
+    if (req.url && req.url.startsWith("/uploads/preview/")) {
+      void servePreview(req, res);
+      return;
+    }
     if (req.url && req.url.startsWith("/uploads/")) {
       void serveUpload(req, res);
       return;

@@ -145,7 +145,7 @@ function PublicMaterials() {
           Darslik va fayllar — loginsiz
         </h2>
         <p className="mt-3 text-[15px] leading-relaxed text-muted">
-          Ism-familiyangizni kiriting va guruh materiallarini yuklab oling.
+          Ism-familiyangizni kiriting va guruh materiallarini ko'ring.
         </p>
       </div>
 

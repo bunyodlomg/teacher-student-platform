@@ -10,7 +10,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronDown,
   Copy,
-  Download,
+  Eye,
   Globe,
   Loader2,
   Monitor,
@@ -92,7 +92,7 @@ export function PublicMaterialsCard({ group }: { group: Group }) {
           </div>
           <p className="mt-0.5 text-[12px] leading-relaxed text-muted">
             {isOpen
-              ? "Havolani bilgan har kim ism kiritib fayllarni yuklab oladi."
+              ? "Havolani bilgan har kim ism kiritib fayllarni ko'ra oladi."
               : "Yoqilsa, guruhdagi fayl biriktirilgan darslar loginsiz ochiladi."}
           </p>
         </div>
@@ -186,7 +186,7 @@ function GuestRow({ guest }: { guest: MaterialGuest }) {
           </span>
         </span>
         <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-muted">
-          <Download className="h-3.5 w-3.5" />
+          <Eye className="h-3.5 w-3.5" />
           {guest.downloads}
         </span>
       </button>
@@ -207,7 +207,7 @@ function GuestRow({ guest }: { guest: MaterialGuest }) {
                   key={`${e.at}-${i}`}
                   className="flex items-center gap-2 border-t border-border/60 py-1.5 text-[12px] text-muted"
                 >
-                  <Download className="h-3.5 w-3.5 shrink-0 text-faint" />
+                  <Eye className="h-3.5 w-3.5 shrink-0 text-faint" />
                   <span className="min-w-0 flex-1 truncate">
                     {e.fileName || "fayl"}
                   </span>

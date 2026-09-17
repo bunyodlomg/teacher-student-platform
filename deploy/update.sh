@@ -15,6 +15,22 @@ BUILD_MEM="${BUILD_MEM:-2048}"
 
 as_app() { sudo -u "$APP_USER" "$@"; }
 
+# LibreOffice (headless) — Word/PowerPoint fayllarini yuklab olmasdan ko'rish
+# uchun PDF'ga aylantiradi. Calibri/Cambria o'rnini bosuvchi shriftlar bilan.
+install_libreoffice() {
+  if command -v soffice >/dev/null; then return 0; fi
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -y
+  apt-get install -y --no-install-recommends \
+    libreoffice-writer-nogui libreoffice-impress-nogui \
+    fonts-dejavu fonts-liberation fonts-crosextra-carlito fonts-crosextra-caladea \
+  || apt-get install -y --no-install-recommends \
+    libreoffice-writer libreoffice-impress fonts-dejavu fonts-liberation
+}
+
+echo "==> LibreOffice tekshirilmoqda (hujjatlarni ko'rish uchun)..."
+install_libreoffice || echo "!!! LibreOffice o'rnatilmadi — hujjatlarni ko'rish ishlamaydi" >&2
+
 echo "==> Git'dan oxirgi o'zgarishlar olinmoqda..."
 as_app git pull origin main
 

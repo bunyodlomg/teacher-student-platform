@@ -4,10 +4,11 @@ import { Attachment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { AttachmentChip } from "@/components/ui/Attachment";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Download, Folder, FolderOpen } from "lucide-react";
+import { canPreview } from "@/components/ui/FileViewer";
+import { ChevronDown, Download, Eye, Folder, FolderOpen } from "lucide-react";
 import { useState } from "react";
 
-/** A folder that opens to reveal its documents — each downloadable. */
+/** A folder that opens to reveal its documents — each viewable in place. */
 export function DocumentFolder({ files }: { files: Attachment[] }) {
   const [open, setOpen] = useState(false);
 
@@ -58,7 +59,11 @@ export function DocumentFolder({ files }: { files: Attachment[] }) {
                   <AttachmentChip attachment={a} />
                   {a.url && (
                     <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-faint">
-                      <Download className="h-4 w-4" />
+                      {canPreview(a) ? (
+                        <Eye className="h-4 w-4" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
                     </span>
                   )}
                 </div>
