@@ -200,6 +200,11 @@ interface DataState {
   ) => Promise<{ ok: boolean; error?: string }>;
   /** Delete a group and its scoped content (owner teacher or admin). */
   deleteGroup: (groupId: string) => Promise<{ ok: boolean; error?: string }>;
+  /** Reassign a group to another teacher (admin only). */
+  reassignGroupTeacher: (
+    groupId: string,
+    teacherId: string
+  ) => Promise<{ ok: boolean; error?: string }>;
 }
 
 async function postJSON(url: string, body?: unknown) {
@@ -741,6 +746,25 @@ export const useData = create<DataState>()((set, get) => ({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return { ok: false, error: data?.error || "Xatolik" };
       set((st) => ({ groups: st.groups.filter((g) => g.id !== groupId) }));
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Tarmoq xatosi" };
+    }
+  },
+
+  reassignGroupTeacher: async (groupId, teacherId) => {
+    try {
+      const res = await fetch(`/api/admin/groups/${groupId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ teacherId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok)
+        return { ok: false, error: data?.error || "Saqlashda xatolik" };
+      if (data.group)
+        set((st) => ({ groups: upsertById(st.groups, data.group) }));
       return { ok: true };
     } catch {
       return { ok: false, error: "Tarmoq xatosi" };

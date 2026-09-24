@@ -34,6 +34,7 @@ export const PATCH = withAuth(
     if (!group) return notFound();
 
     const before = new Set(group.studentIds.map((s) => s.toString()));
+    const prevTeacherId = group.teacherId.toString();
 
     if (typeof b.name === "string") group.name = b.name.trim();
     if (typeof b.subject === "string") group.subject = b.subject.trim();
@@ -73,13 +74,19 @@ export const PATCH = withAuth(
     );
 
     // Push a live refresh to everyone whose scope changed (added/removed
-    // students + the group's teacher) so their groups/feeds update without a
-    // manual reload, and their socket rejoins the right rooms.
-    emitToUsers(
-      [...added, ...removed, group.teacherId.toString()],
-      "state:refresh",
-      { groupId: group._id.toString() }
-    );
+    // students + the group's teacher, and the previous teacher if reassigned)
+    // so their groups/feeds update without a manual reload, and their socket
+    // rejoins the right rooms.
+    const newTeacherId = group.teacherId.toString();
+    const refreshIds = new Set([
+      ...added,
+      ...removed,
+      newTeacherId,
+      prevTeacherId,
+    ]);
+    emitToUsers([...refreshIds], "state:refresh", {
+      groupId: group._id.toString(),
+    });
 
     return json({ group: sGroup(group.toObject()) });
   }

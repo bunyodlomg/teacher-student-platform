@@ -4,8 +4,11 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Field, Input, Textarea } from "@/components/ui/Field";
+import { Avatar } from "@/components/ui/Avatar";
 import { Group } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { useData } from "@/store/data";
+import { useSession } from "@/store/session";
 import { toast } from "@/store/toast";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
@@ -30,10 +33,16 @@ export function EditGroupModal({
   const router = useRouter();
   const updateGroup = useData((s) => s.updateGroup);
   const deleteGroup = useData((s) => s.deleteGroup);
+  const reassignGroupTeacher = useData((s) => s.reassignGroupTeacher);
+  const users = useData((s) => s.users);
+  const role = useSession((s) => s.user?.role);
+  const isAdmin = role === "admin";
+  const teachers = users.filter((u) => u.role === "teacher");
 
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
+  const [teacherId, setTeacherId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -45,6 +54,7 @@ export function EditGroupModal({
     setName(group.name);
     setSubject(group.subject);
     setDescription(group.description ?? "");
+    setTeacherId(group.teacherId);
     setError("");
   }
   if (!open && syncKey !== null) setSyncKey(null);
@@ -58,6 +68,20 @@ export function EditGroupModal({
       subject: subject.trim(),
       description: description.trim(),
     });
+    // Admin o'qituvchini o'zgartirgan bo'lsa — alohida (admin-only) endpoint.
+    if (
+      res.ok &&
+      isAdmin &&
+      teacherId &&
+      teacherId !== group.teacherId
+    ) {
+      const r2 = await reassignGroupTeacher(group.id, teacherId);
+      if (!r2.ok) {
+        setSaving(false);
+        setError(r2.error || "O'qituvchini o'zgartirishda xatolik");
+        return;
+      }
+    }
     setSaving(false);
     if (!res.ok) {
       setError(res.error || "Saqlashda xatolik");
@@ -128,6 +152,28 @@ export function EditGroupModal({
               className="min-h-[64px]"
             />
           </Field>
+          {isAdmin && (
+            <Field label="O'qituvchi">
+              <div className="flex flex-wrap gap-2">
+                {teachers.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTeacherId(t.id)}
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors",
+                      teacherId === t.id
+                        ? "border-accent/40 bg-accent-soft text-accent"
+                        : "border-border text-muted hover:bg-elevated hover:text-ink"
+                    )}
+                  >
+                    <Avatar user={t} size="xs" />
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            </Field>
+          )}
         </div>
       </Modal>
 

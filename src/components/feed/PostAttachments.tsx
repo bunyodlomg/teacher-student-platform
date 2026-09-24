@@ -55,8 +55,10 @@ export function PostAttachments({
                 src={a.url}
                 alt={a.name}
                 loading="lazy"
+                draggable={false}
+                onContextMenu={(e) => e.preventDefault()}
                 className={cn(
-                  "w-full transition-transform duration-300 group-hover:scale-[1.02]",
+                  "w-full select-none transition-transform duration-300 group-hover:scale-[1.02]",
                   images.length === 1
                     ? "max-h-[34rem] object-contain"
                     : "h-44 object-cover"
@@ -78,6 +80,9 @@ export function PostAttachments({
           src={a.url}
           controls
           preload="metadata"
+          controlsList="nodownload"
+          disablePictureInPicture
+          onContextMenu={(e) => e.preventDefault()}
           className="w-full rounded-2xl border border-border bg-black"
         />
       ))}

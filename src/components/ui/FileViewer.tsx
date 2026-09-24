@@ -2,11 +2,15 @@
 
 import { Attachment } from "@/lib/types";
 import { attachmentMeta } from "@/components/ui/Attachment";
+import { VoiceMessage } from "@/components/media/VoiceMessage";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { Download, FileQuestion, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+
+/** Media ustida "saqlash" kontekst menyusini bloklaydi (yuklab olishni kamaytirish). */
+const blockSave = (e: React.SyntheticEvent) => e.preventDefault();
 
 /**
  * Faylni platforma ichida, yuklab olmasdan ko'rsatadi.
@@ -122,15 +126,6 @@ function Header({ file, onClose }: { file: Attachment; onClose: () => void }) {
           {file.meta ? ` · ${file.meta}` : ""}
         </p>
       </div>
-      <a
-        href={file.url}
-        download={file.name}
-        className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium text-muted transition-colors hover:bg-elevated hover:text-ink"
-        title="Yuklab olish"
-      >
-        <Download className="h-4 w-4" />
-        <span className="hidden sm:inline">Yuklab olish</span>
-      </a>
       <button
         type="button"
         onClick={onClose}
@@ -159,19 +154,34 @@ function Body({ file }: { file: Attachment }) {
       return (
         <div className="grid h-full place-items-center overflow-auto p-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={url} alt={file.name} className="max-h-full max-w-full rounded-lg object-contain" />
+          <img
+            src={url}
+            alt={file.name}
+            draggable={false}
+            onContextMenu={blockSave}
+            className="max-h-full max-w-full select-none rounded-lg object-contain"
+          />
         </div>
       );
     case "video":
       return (
         <div className="grid h-full place-items-center bg-black">
-          <video src={url} controls autoPlay className="max-h-full max-w-full" />
+          <video
+            src={url}
+            controls
+            autoPlay
+            controlsList="nodownload"
+            disablePictureInPicture
+            onContextMenu={blockSave}
+            className="max-h-full max-w-full"
+          />
         </div>
       );
     case "audio":
+      // Custom pleyer — native "yuklab olish" menyusi bo'lmaydi.
       return (
         <div className="grid h-full place-items-center p-6">
-          <audio src={url} controls autoPlay className="w-full max-w-md" />
+          <VoiceMessage src={url} name={file.name} className="w-full max-w-md" />
         </div>
       );
     default:

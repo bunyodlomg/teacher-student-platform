@@ -28,7 +28,9 @@ export default function AdminGroups() {
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
-  const [teacherId, setTeacherId] = useState(teachers[0]?.id ?? "");
+  // Oldindan tanlanmaydi — admin har bir guruhga o'qituvchini aniq tanlashi
+  // shart (aks holda hamma guruh birinchi o'qituvchiga tushib qolardi).
+  const [teacherId, setTeacherId] = useState("");
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -55,6 +57,7 @@ export default function AdminGroups() {
     setName("");
     setSubject("");
     setDescription("");
+    setTeacherId("");
     setOpen(false);
   };
 

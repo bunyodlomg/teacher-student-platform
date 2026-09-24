@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
-import { Download, X, ZoomIn, ZoomOut } from "lucide-react";
+import { X, ZoomIn, ZoomOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -67,16 +67,6 @@ export function Lightbox({
                 <ZoomIn className="h-5 w-5" />
               )}
             </button>
-            <a
-              href={src}
-              download={name}
-              onClick={(e) => e.stopPropagation()}
-              className="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
-              aria-label="Yuklab olish"
-              title="Yuklab olish"
-            >
-              <Download className="h-5 w-5" />
-            </a>
             <button
               onClick={onClose}
               className="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
@@ -90,6 +80,8 @@ export function Lightbox({
             key={src}
             src={src}
             alt={name || ""}
+            draggable={false}
+            onContextMenu={(e) => e.preventDefault()}
             onClick={(e) => {
               e.stopPropagation();
               setZoom((z) => !z);
