@@ -6,7 +6,11 @@ import { Badge } from "@/components/ui/Badge";
 import { StatCard } from "@/components/ui/StatCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { attemptsForTest, getGroup, getTest, getUser } from "@/lib/selectors";
-import { downloadTestResults, durationLabel } from "@/lib/testExport";
+import {
+  downloadPerClassFiles,
+  downloadTestResults,
+  durationLabel,
+} from "@/lib/testExport";
 import { useData } from "@/store/data";
 import { toast } from "@/store/toast";
 import { Test, TestAttempt } from "@/lib/types";
@@ -17,6 +21,7 @@ import {
   Award,
   Copy,
   Download,
+  FolderArchive,
   Globe,
   Lock,
   Play,
@@ -57,7 +62,7 @@ export function TestDetail({
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [notifying, setNotifying] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<"one" | "split" | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -119,11 +124,14 @@ export function TestDetail({
     else toast.error(res.error || "Xatolik");
   };
 
-  /** Sinflar bo'yicha alohida varaqlarga bo'lingan Excel. */
-  const exportExcel = async () => {
-    setExporting(true);
+  /**
+   * "one" — bitta Excel fayl, har sinf alohida varaq.
+   * "split" — har sinf uchun alohida fayl, ZIP arxivda.
+   */
+  const exportExcel = async (mode: "one" | "split") => {
+    setExporting(mode);
     try {
-      await downloadTestResults({
+      const bundle = {
         test,
         groupName: group?.name,
         rows: rows.map((r) => ({
@@ -134,12 +142,20 @@ export function TestDetail({
           isGuest: r.isGuest,
           pct: r.pct,
         })),
-      });
-      toast.success("Excel tayyor — har sinf alohida varaqda");
+      };
+      if (mode === "split") {
+        const n = await downloadPerClassFiles(bundle);
+        toast.success(
+          n === 1 ? "Excel tayyor" : `${n} ta sinf — ${n} ta fayl (ZIP)`
+        );
+      } else {
+        await downloadTestResults(bundle);
+        toast.success("Excel tayyor — har sinf alohida varaqda");
+      }
     } catch {
       toast.error("Yuklab bo'lmadi");
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   };
 
@@ -285,12 +301,24 @@ export function TestDetail({
             <Button
               variant="secondary"
               size="sm"
-              onClick={exportExcel}
-              disabled={exporting}
-              title="Har bir sinf uchun alohida varaq"
+              onClick={() => exportExcel("one")}
+              disabled={!!exporting}
+              title="Bitta Excel fayl — har sinf alohida varaqda"
             >
               <Download className="h-4 w-4" />
-              {exporting ? "Tayyorlanmoqda…" : "Excel yuklab olish"}
+              {exporting === "one" ? "Tayyorlanmoqda…" : "Excel"}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => exportExcel("split")}
+              disabled={!!exporting}
+              title="Har sinf uchun alohida fayl (ZIP arxiv)"
+            >
+              <FolderArchive className="h-4 w-4" />
+              {exporting === "split"
+                ? "Tayyorlanmoqda…"
+                : "Har sinf — alohida fayl"}
             </Button>
           </div>
         )}

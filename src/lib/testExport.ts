@@ -1,6 +1,7 @@
 import type { Test, TestAttempt, User } from "@/lib/types";
 import { gradeSortKey, NO_GRADE_LABEL, normalizeGrade } from "@/lib/grade";
 import { formatDateTime } from "@/lib/utils";
+import { makeZip, saveBlob, ZipEntry } from "@/lib/zip";
 
 /** Eksport uchun bitta qator — natijalar jadvalidagi qatorga mos. */
 export interface ExportRow {
@@ -233,6 +234,112 @@ function testSubtitle(b: TestExportBundle): string {
     .join(" · ");
 }
 
+/** Bitta sinf jadvali (sarlavha + statistika + qatorlar) — varaq sifatida. */
+function classSheet(
+  XLSX: XLSXNS,
+  bundle: TestExportBundle,
+  bucket: GradeBucket
+): Sheet {
+  const s = stats(bucket.rows);
+  const body = bucket.rows.map((r, i) => classRow(r, i));
+  const ws = XLSX.utils.aoa_to_sheet([
+    [`${bucket.label} — ${bundle.test.title}`],
+    [
+      `${bundle.test.subject || "Test"} · ${
+        bucket.rows.length
+      } ishtirokchi · o'rtacha ${s.avg === null ? "—" : `${s.avg}%`}`,
+    ],
+    [],
+    CLASS_HEAD,
+    ...body,
+  ]);
+  ws["!cols"] = CLASS_COLS.map((wch) => ({ wch }));
+  markPercent(
+    XLSX,
+    ws,
+    body.map((_, i) => 4 + i),
+    [FOIZ_IN_CLASS]
+  );
+  return ws;
+}
+
+/** Bitta sinf uchun mustaqil .xlsx fayl baytlari. */
+function classFileBytes(
+  XLSX: XLSXNS,
+  bundle: TestExportBundle,
+  bucket: GradeBucket
+): Uint8Array {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    wb,
+    classSheet(XLSX, bundle, bucket),
+    sheetName(bucket.label, new Set())
+  );
+  return new Uint8Array(
+    XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer
+  );
+}
+
+/**
+ * Bitta test natijalari → HAR SINF ALOHIDA FAYL.
+ * Bir nechta sinf bo'lsa — hammasi bitta ZIP arxivda, bitta bo'lsa — to'g'ridan
+ * to'g'ri .xlsx. Qaytaradi: nechta fayl yasalgani.
+ */
+export async function downloadPerClassFiles(
+  bundle: TestExportBundle
+): Promise<number> {
+  const XLSX = await import("xlsx");
+  const buckets = groupRowsByGrade(bundle.rows, bundle.groupName);
+  const testName = safeFileName(bundle.test.title) || "test";
+
+  if (buckets.length === 1) {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      wb,
+      classSheet(XLSX, bundle, buckets[0]),
+      sheetName(buckets[0].label, new Set())
+    );
+    XLSX.writeFile(wb, `${safeFileName(buckets[0].label)} - ${testName}.xlsx`);
+    return 1;
+  }
+
+  const entries: ZipEntry[] = buckets.map((b) => ({
+    name: `${safeFileName(b.label)} - ${testName}.xlsx`,
+    data: classFileBytes(XLSX, bundle, b),
+  }));
+  saveBlob(makeZip(entries), `${testName} - sinflar.zip`);
+  return entries.length;
+}
+
+/**
+ * Bir nechta test → har test uchun papka, ichida har sinf alohida fayl (ZIP).
+ */
+export async function downloadAllPerClassFiles(
+  bundles: TestExportBundle[],
+  fileName = "Barcha testlar - sinflar.zip"
+): Promise<number> {
+  const XLSX = await import("xlsx");
+  const entries: ZipEntry[] = [];
+  const usedFolders = new Set<string>();
+
+  for (const bundle of bundles) {
+    let folder = safeFileName(bundle.test.title) || "test";
+    let i = 2;
+    while (usedFolders.has(folder.toLowerCase())) folder = `${folder} (${i++})`;
+    usedFolders.add(folder.toLowerCase());
+
+    for (const b of groupRowsByGrade(bundle.rows, bundle.groupName)) {
+      entries.push({
+        name: `${folder}/${safeFileName(b.label)}.xlsx`,
+        data: classFileBytes(XLSX, bundle, b),
+      });
+    }
+  }
+
+  saveBlob(makeZip(entries), fileName);
+  return entries.length;
+}
+
 /**
  * Bitta test natijalari → Excel.
  * "Umumiy" + "Sinflar kesimi" varaqlari va HAR BIR SINF uchun alohida varaq.
@@ -289,27 +396,11 @@ export async function downloadTestResults(
 
   // 3. Har bir sinf — alohida varaq
   for (const b of buckets) {
-    const s = stats(b.rows);
-    const body = b.rows.map((r, i) => classRow(r, i));
-    const ws = XLSX.utils.aoa_to_sheet([
-      [`${b.label} — ${test.title}`],
-      [
-        `${test.subject || "Test"} · ${b.rows.length} ishtirokchi · o'rtacha ${
-          s.avg === null ? "—" : `${s.avg}%`
-        }`,
-      ],
-      [],
-      CLASS_HEAD,
-      ...body,
-    ]);
-    ws["!cols"] = CLASS_COLS.map((wch) => ({ wch }));
-    markPercent(
-      XLSX,
-      ws,
-      body.map((_, i) => 4 + i),
-      [FOIZ_IN_CLASS]
+    XLSX.utils.book_append_sheet(
+      wb,
+      classSheet(XLSX, bundle, b),
+      sheetName(b.label, used)
     );
-    XLSX.utils.book_append_sheet(wb, ws, sheetName(b.label, used));
   }
 
   XLSX.writeFile(wb, `${safeFileName(test.title) || "test"} - natijalar.xlsx`);

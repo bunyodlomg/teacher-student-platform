@@ -10,7 +10,9 @@ import { toast } from "@/store/toast";
 import { attemptsForTest, getGroup } from "@/lib/selectors";
 import {
   buildExportRows,
+  downloadAllPerClassFiles,
   downloadAllTestResults,
+  downloadPerClassFiles,
   downloadTestResults,
   TestExportBundle,
 } from "@/lib/testExport";
@@ -28,6 +30,7 @@ import {
   Play,
   Plus,
   Sheet,
+  FolderArchive,
   Trash2,
   Users,
 } from "lucide-react";
@@ -87,17 +90,28 @@ export function TestsList({
     rows: buildExportRows(await loadAttempts(t.id), users),
   });
 
-  /** Bitta test — natijalar sahifasiga kirmasdan yuklab olish. */
-  const exportOne = async (t: Test) => {
-    setExporting(t.id);
+  /**
+   * Bitta test — natijalar sahifasiga kirmasdan yuklab olish.
+   * mode="one" → bitta fayl (sinflar varaq-varaq),
+   * mode="split" → har sinf alohida fayl (ZIP arxiv).
+   */
+  const exportOne = async (t: Test, mode: "one" | "split") => {
+    setExporting(t.id + mode);
     try {
       const bundle = await bundleFor(t);
       if (bundle.rows.length === 0) {
         toast.error("Bu testda hali natija yo'q");
         return;
       }
-      await downloadTestResults(bundle);
-      toast.success("Excel tayyor — sinflar bo'yicha alohida varaqlar");
+      if (mode === "split") {
+        const n = await downloadPerClassFiles(bundle);
+        toast.success(
+          n === 1 ? "Excel tayyor" : `${n} ta sinf — ${n} ta fayl (ZIP)`
+        );
+      } else {
+        await downloadTestResults(bundle);
+        toast.success("Excel tayyor — sinflar bo'yicha alohida varaqlar");
+      }
     } catch {
       toast.error("Yuklab bo'lmadi");
     } finally {
@@ -105,9 +119,9 @@ export function TestsList({
     }
   };
 
-  /** Barcha testlar — bitta Excel faylga. */
-  const exportAll = async () => {
-    setExporting("all");
+  /** Barcha testlarni bir yo'la yig'ib olish. */
+  const exportAll = async (mode: "one" | "split") => {
+    setExporting("all" + mode);
     try {
       const bundles: TestExportBundle[] = [];
       // serverni bosmaslik uchun 4 tadan
@@ -120,8 +134,13 @@ export function TestsList({
         toast.error("Hali birorta testda natija yo'q");
         return;
       }
-      await downloadAllTestResults(withRows);
-      toast.success(`${withRows.length} ta test natijasi yuklandi`);
+      if (mode === "split") {
+        const n = await downloadAllPerClassFiles(withRows);
+        toast.success(`${withRows.length} ta test · ${n} ta sinf fayli (ZIP)`);
+      } else {
+        await downloadAllTestResults(withRows);
+        toast.success(`${withRows.length} ta test natijasi yuklandi`);
+      }
     } catch {
       toast.error("Yuklab bo'lmadi");
     } finally {
@@ -159,15 +178,28 @@ export function TestsList({
         action={
           <div className="flex items-center gap-2">
             {tests.length > 0 && (
-              <Button
-                variant="secondary"
-                onClick={exportAll}
-                disabled={!!exporting}
-                title="Barcha testlar natijasi — bitta Excel faylda, sinflar bo'yicha"
-              >
-                <Sheet className="h-4 w-4" />
-                {exporting === "all" ? "Tayyorlanmoqda…" : "Hammasi — Excel"}
-              </Button>
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={() => exportAll("one")}
+                  disabled={!!exporting}
+                  title="Barcha testlar — bitta Excel faylda (har sinf alohida varaq)"
+                >
+                  <Sheet className="h-4 w-4" />
+                  {exporting === "allone" ? "Tayyorlanmoqda…" : "Hammasi — Excel"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => exportAll("split")}
+                  disabled={!!exporting}
+                  title="Barcha testlar — har sinf alohida fayl, ZIP arxivda"
+                >
+                  <FolderArchive className="h-4 w-4" />
+                  {exporting === "allsplit"
+                    ? "Tayyorlanmoqda…"
+                    : "Hammasi — sinf fayllari"}
+                </Button>
+              </>
             )}
             <Button onClick={() => setOpen(true)}>
               <Plus className="h-4 w-4" /> Yangi test
@@ -278,12 +310,22 @@ export function TestsList({
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => exportOne(t)}
+                      onClick={() => exportOne(t, "one")}
                       disabled={!!exporting}
-                      title="Natijalarni Excel'ga yuklab olish (sinflar bo'yicha)"
+                      title="Bitta Excel fayl — har sinf alohida varaqda"
                     >
                       <Download className="h-4 w-4" />
-                      {exporting === t.id ? "…" : "Excel"}
+                      {exporting === t.id + "one" ? "…" : "Excel"}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => exportOne(t, "split")}
+                      disabled={!!exporting}
+                      title="Har sinf uchun alohida fayl (ZIP arxiv)"
+                    >
+                      <FolderArchive className="h-4 w-4" />
+                      {exporting === t.id + "split" ? "…" : "Sinflar"}
                     </Button>
                     <Link href={`${basePath}/tests/${t.id}`}>
                       <Button variant="secondary" size="sm">
