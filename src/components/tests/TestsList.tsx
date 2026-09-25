@@ -8,6 +8,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { TestBuilderModal } from "@/components/teacher/TestBuilderModal";
 import { toast } from "@/store/toast";
 import { attemptsForTest, getGroup } from "@/lib/selectors";
+import { bestAttemptRows } from "@/lib/dedupe";
 import {
   buildExportRows,
   downloadAllPerClassFiles,
@@ -30,6 +31,7 @@ import {
   Play,
   Plus,
   Sheet,
+  Filter,
   FolderArchive,
   Trash2,
   Users,
@@ -64,6 +66,8 @@ export function TestsList({
   const [busy, setBusy] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<Test | null>(null);
   const [exporting, setExporting] = useState<string | null>(null);
+  // takroriy urinishlar: har o'quvchidan faqat eng yaxshi natija
+  const [bestOnly, setBestOnly] = useState(true);
 
   /**
    * Natijalarni serverdan oladi — vaqti tugagan urinishlar shu so'rovda
@@ -84,11 +88,14 @@ export function TestsList({
     return attemptsForTest(attempts, testId);
   };
 
-  const bundleFor = async (t: Test): Promise<TestExportBundle> => ({
-    test: t,
-    groupName: getGroup(groups, t.groupId)?.name,
-    rows: buildExportRows(await loadAttempts(t.id), users),
-  });
+  const bundleFor = async (t: Test): Promise<TestExportBundle> => {
+    const all = buildExportRows(await loadAttempts(t.id), users);
+    return {
+      test: t,
+      groupName: getGroup(groups, t.groupId)?.name,
+      rows: bestOnly ? bestAttemptRows(all).rows : all,
+    };
+  };
 
   /**
    * Bitta test — natijalar sahifasiga kirmasdan yuklab olish.
@@ -179,6 +186,20 @@ export function TestsList({
           <div className="flex items-center gap-2">
             {tests.length > 0 && (
               <>
+                <button
+                  onClick={() => setBestOnly((v) => !v)}
+                  disabled={!!exporting}
+                  title="Bir o'quvchi bir necha marta ishlagan bo'lsa, eksportga faqat eng yaxshi natijasi tushadi"
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors",
+                    bestOnly
+                      ? "border-accent/30 bg-accent-soft text-accent"
+                      : "border-border text-muted hover:text-ink"
+                  )}
+                >
+                  <Filter className="h-3.5 w-3.5" />
+                  {bestOnly ? "Eng yaxshi natija" : "Barcha urinishlar"}
+                </button>
                 <Button
                   variant="secondary"
                   onClick={() => exportAll("one")}

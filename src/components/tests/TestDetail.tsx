@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { StatCard } from "@/components/ui/StatCard";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { attemptsForTest, getGroup, getTest, getUser } from "@/lib/selectors";
+import { attemptsForTest, getGroup, getTest } from "@/lib/selectors";
+import { bestAttemptRows } from "@/lib/dedupe";
 import {
+  buildExportRows,
   downloadPerClassFiles,
   downloadTestResults,
   durationLabel,
@@ -21,6 +23,7 @@ import {
   Award,
   Copy,
   Download,
+  Filter,
   FolderArchive,
   Globe,
   Lock,
@@ -63,6 +66,7 @@ export function TestDetail({
   const [copied, setCopied] = useState(false);
   const [notifying, setNotifying] = useState(false);
   const [exporting, setExporting] = useState<"one" | "split" | null>(null);
+  const [bestOnly, setBestOnly] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -77,20 +81,18 @@ export function TestDetail({
 
   const attempts = fresh ?? attemptsForTest(storeAttempts, testId);
 
-  const rows = useMemo(() => {
-    return attempts
-      .map((a) => {
-        const u = getUser(users, a.studentId);
-        const name = a.guest?.name ?? u?.name ?? "—";
-        const grade = a.guest?.grade ?? "";
-        const phone = a.guest?.phone ?? "";
-        const pct = a.maxScore ? Math.round((a.score / a.maxScore) * 100) : 0;
-        return { a, name, grade, phone, isGuest: !!a.isGuest, pct };
-      })
-      .sort((x, y) => y.a.score - x.a.score);
-  }, [attempts, users]);
+  const allRows = useMemo(
+    () => buildExportRows(attempts, users),
+    [attempts, users]
+  );
+  // bir o'quvchi bir necha marta ishlagan bo'lsa — eng yaxshisi
+  const { rows: uniqueRows, removed } = useMemo(
+    () => bestAttemptRows(allRows),
+    [allRows]
+  );
+  const rows = bestOnly ? uniqueRows : allRows;
 
-  const finished = rows.filter((r) => r.a.status !== "in_progress");
+  const finished = rows.filter((r) => r.attempt.status !== "in_progress");
   const avg = finished.length
     ? Math.round(finished.reduce((s, r) => s + r.pct, 0) / finished.length)
     : null;
@@ -131,18 +133,7 @@ export function TestDetail({
   const exportExcel = async (mode: "one" | "split") => {
     setExporting(mode);
     try {
-      const bundle = {
-        test,
-        groupName: group?.name,
-        rows: rows.map((r) => ({
-          attempt: r.a,
-          name: r.name,
-          grade: r.grade,
-          phone: r.phone,
-          isGuest: r.isGuest,
-          pct: r.pct,
-        })),
-      };
+      const bundle = { test, groupName: group?.name, rows };
       if (mode === "split") {
         const n = await downloadPerClassFiles(bundle);
         toast.success(
@@ -282,10 +273,29 @@ export function TestDetail({
         />
       </div>
 
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-display text-lg font-semibold text-ink">
-          Natijalar
-        </h2>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="font-display text-lg font-semibold text-ink">
+            Natijalar
+          </h2>
+          {removed > 0 && (
+            <button
+              onClick={() => setBestOnly((v) => !v)}
+              title="Bir o'quvchi testni bir necha marta ishlagan bo'lsa, faqat eng yaxshi natijasi qoladi"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors",
+                bestOnly
+                  ? "border-accent/30 bg-accent-soft text-accent"
+                  : "border-border text-muted hover:text-ink"
+              )}
+            >
+              <Filter className="h-3.5 w-3.5" />
+              {bestOnly
+                ? `Eng yaxshi natija · ${removed} ta takror yashirildi`
+                : `Barcha urinishlar (${allRows.length})`}
+            </button>
+          )}
+        </div>
         {rows.length > 0 && (
           <div className="flex items-center gap-2">
             <Button
@@ -353,10 +363,10 @@ export function TestDetail({
             </thead>
             <tbody>
               {rows.map((r, i) => {
-                const inProgress = r.a.status === "in_progress";
+                const inProgress = r.attempt.status === "in_progress";
                 return (
                   <tr
-                    key={r.a.id}
+                    key={r.attempt.id}
                     className="border-b border-border/60 last:border-0 hover:bg-elevated/40"
                   >
                     <td className="px-4 py-3 text-faint">{i + 1}</td>
@@ -380,18 +390,18 @@ export function TestDetail({
                       {r.phone || "—"}
                     </td>
                     <td className="px-4 py-3 text-[13px] text-muted">
-                      {r.a.submittedAt
-                        ? formatDateTime(r.a.submittedAt)
+                      {r.attempt.submittedAt
+                        ? formatDateTime(r.attempt.submittedAt)
                         : inProgress
                         ? "ishlamoqda…"
                         : "—"}
                     </td>
                     <td className="px-4 py-3 text-center text-muted nums">
-                      {r.a.correctCount}/{r.a.totalCount}
+                      {r.attempt.correctCount}/{r.attempt.totalCount}
                     </td>
                     <td className="px-4 py-3 text-center font-semibold text-ink nums">
-                      {r.a.score}
-                      <span className="text-faint">/{r.a.maxScore}</span>
+                      {r.attempt.score}
+                      <span className="text-faint">/{r.attempt.maxScore}</span>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span
@@ -408,17 +418,17 @@ export function TestDetail({
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center text-[13px] text-muted nums">
-                      {durationLabel(r.a.startedAt, r.a.submittedAt)}
+                      {durationLabel(r.attempt.startedAt, r.attempt.submittedAt)}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {r.a.violations > 0 ? (
+                      {r.attempt.violations > 0 ? (
                         <span
                           className="inline-flex items-center gap-1 text-[12px] font-semibold text-danger"
-                          title={violationSummary(r.a)}
+                          title={violationSummary(r.attempt)}
                         >
                           <AlertTriangle className="h-3.5 w-3.5" />
-                          {r.a.violations}
-                          {r.a.forcedSubmit && " ⛔"}
+                          {r.attempt.violations}
+                          {r.attempt.forcedSubmit && " ⛔"}
                         </span>
                       ) : (
                         <span className="text-[12px] text-success">toza</span>
