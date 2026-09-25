@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { StatCard } from "@/components/ui/StatCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { attemptsForTest, getGroup, getTest, getUser } from "@/lib/selectors";
+import { downloadTestResults, durationLabel } from "@/lib/testExport";
 import { useData } from "@/store/data";
 import { toast } from "@/store/toast";
 import { Test, TestAttempt } from "@/lib/types";
@@ -26,15 +27,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-
-function minutesBetween(a?: string, b?: string): string {
-  if (!a || !b) return "—";
-  const ms = new Date(b).getTime() - new Date(a).getTime();
-  if (ms <= 0) return "—";
-  const m = Math.floor(ms / 60000);
-  const s = Math.floor((ms % 60000) / 1000);
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
 
 const statusMeta: Record<
   Test["status"],
@@ -65,6 +57,7 @@ export function TestDetail({
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [notifying, setNotifying] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -126,75 +119,28 @@ export function TestDetail({
     else toast.error(res.error || "Xatolik");
   };
 
+  /** Sinflar bo'yicha alohida varaqlarga bo'lingan Excel. */
   const exportExcel = async () => {
-    const XLSX = await import("xlsx");
-    const head = [
-      "№",
-      "Ism-familiya",
-      "Sinf",
-      "Telefon",
-      "Turi",
-      "Guruh",
-      "Sana",
-      "To'g'ri",
-      "Jami",
-      "Ball",
-      "Maks",
-      "Foiz",
-      "Vaqt",
-      "Qoida buzish",
-      "Holat",
-    ];
-    const body = rows.map((r, i) => [
-      i + 1,
-      r.name,
-      r.grade || "—",
-      r.phone || "—",
-      r.isGuest ? "Mehmon" : "O'quvchi",
-      group?.name ?? "—",
-      r.a.submittedAt ? formatDateTime(r.a.submittedAt) : "—",
-      r.a.correctCount,
-      r.a.totalCount,
-      r.a.score,
-      r.a.maxScore,
-      r.pct / 100,
-      minutesBetween(r.a.startedAt, r.a.submittedAt),
-      r.a.violations,
-      r.a.status === "in_progress"
-        ? "Ishlamoqda"
-        : r.a.status === "auto_submitted"
-        ? "Vaqt tugadi"
-        : "Topshirilgan",
-    ]);
-
-    const ws = XLSX.utils.aoa_to_sheet([head, ...body]);
-    ws["!cols"] = [
-      { wch: 4 },
-      { wch: 24 },
-      { wch: 8 },
-      { wch: 16 },
-      { wch: 10 },
-      { wch: 18 },
-      { wch: 18 },
-      { wch: 7 },
-      { wch: 6 },
-      { wch: 6 },
-      { wch: 6 },
-      { wch: 8 },
-      { wch: 8 },
-      { wch: 12 },
-      { wch: 14 },
-    ];
-    // "Foiz" ustuni (L = index 11)
-    for (let i = 0; i < body.length; i++) {
-      const cell = ws[XLSX.utils.encode_cell({ r: i + 1, c: 11 })];
-      if (cell) cell.z = "0%";
+    setExporting(true);
+    try {
+      await downloadTestResults({
+        test,
+        groupName: group?.name,
+        rows: rows.map((r) => ({
+          attempt: r.a,
+          name: r.name,
+          grade: r.grade,
+          phone: r.phone,
+          isGuest: r.isGuest,
+          pct: r.pct,
+        })),
+      });
+      toast.success("Excel tayyor — har sinf alohida varaqda");
+    } catch {
+      toast.error("Yuklab bo'lmadi");
+    } finally {
+      setExporting(false);
     }
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Natijalar");
-    const safe = test.title.replace(/[\\/:*?"<>|]+/g, "-").slice(0, 80);
-    XLSX.writeFile(wb, `${safe}-natijalar.xlsx`);
   };
 
   const notifyParents = async () => {
@@ -336,8 +282,15 @@ export function TestDetail({
               <Send className="h-4 w-4" />
               {notifying ? "Yuborilmoqda…" : "Ota-onaga yuborish"}
             </Button>
-            <Button variant="secondary" size="sm" onClick={exportExcel}>
-              <Download className="h-4 w-4" /> Excel yuklab olish
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={exportExcel}
+              disabled={exporting}
+              title="Har bir sinf uchun alohida varaq"
+            >
+              <Download className="h-4 w-4" />
+              {exporting ? "Tayyorlanmoqda…" : "Excel yuklab olish"}
             </Button>
           </div>
         )}
@@ -427,7 +380,7 @@ export function TestDetail({
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center text-[13px] text-muted nums">
-                      {minutesBetween(r.a.startedAt, r.a.submittedAt)}
+                      {durationLabel(r.a.startedAt, r.a.submittedAt)}
                     </td>
                     <td className="px-4 py-3 text-center">
                       {r.a.violations > 0 ? (

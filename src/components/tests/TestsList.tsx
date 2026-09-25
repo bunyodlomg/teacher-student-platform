@@ -8,18 +8,26 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { TestBuilderModal } from "@/components/teacher/TestBuilderModal";
 import { toast } from "@/store/toast";
 import { attemptsForTest, getGroup } from "@/lib/selectors";
+import {
+  buildExportRows,
+  downloadAllTestResults,
+  downloadTestResults,
+  TestExportBundle,
+} from "@/lib/testExport";
 import { useData } from "@/store/data";
-import { Test } from "@/lib/types";
+import { Test, TestAttempt } from "@/lib/types";
 import { cn, relativeTime } from "@/lib/utils";
 import { motion } from "framer-motion";
 import {
   Clock,
+  Download,
   FileCheck2,
   Globe,
   ListChecks,
   Lock,
   Play,
   Plus,
+  Sheet,
   Trash2,
   Users,
 } from "lucide-react";
@@ -45,12 +53,81 @@ export function TestsList({
 }) {
   const groups = useData((s) => s.groups);
   const attempts = useData((s) => s.attempts);
+  const users = useData((s) => s.users);
   const setTestStatus = useData((s) => s.setTestStatus);
   const deleteTest = useData((s) => s.deleteTest);
 
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<Test | null>(null);
+  const [exporting, setExporting] = useState<string | null>(null);
+
+  /**
+   * Natijalarni serverdan oladi — vaqti tugagan urinishlar shu so'rovda
+   * yakunlanadi. Tarmoq xato bersa store'dagi nusxaga qaytamiz.
+   */
+  const loadAttempts = async (testId: string): Promise<TestAttempt[]> => {
+    try {
+      const res = await fetch(`/api/tests/${testId}/attempts`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const d = await res.json();
+        if (Array.isArray(d?.attempts)) return d.attempts as TestAttempt[];
+      }
+    } catch {
+      /* offline — pastdagi zaxira ishlatiladi */
+    }
+    return attemptsForTest(attempts, testId);
+  };
+
+  const bundleFor = async (t: Test): Promise<TestExportBundle> => ({
+    test: t,
+    groupName: getGroup(groups, t.groupId)?.name,
+    rows: buildExportRows(await loadAttempts(t.id), users),
+  });
+
+  /** Bitta test — natijalar sahifasiga kirmasdan yuklab olish. */
+  const exportOne = async (t: Test) => {
+    setExporting(t.id);
+    try {
+      const bundle = await bundleFor(t);
+      if (bundle.rows.length === 0) {
+        toast.error("Bu testda hali natija yo'q");
+        return;
+      }
+      await downloadTestResults(bundle);
+      toast.success("Excel tayyor — sinflar bo'yicha alohida varaqlar");
+    } catch {
+      toast.error("Yuklab bo'lmadi");
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  /** Barcha testlar — bitta Excel faylga. */
+  const exportAll = async () => {
+    setExporting("all");
+    try {
+      const bundles: TestExportBundle[] = [];
+      // serverni bosmaslik uchun 4 tadan
+      for (let i = 0; i < tests.length; i += 4) {
+        const chunk = await Promise.all(tests.slice(i, i + 4).map(bundleFor));
+        bundles.push(...chunk);
+      }
+      const withRows = bundles.filter((b) => b.rows.length > 0);
+      if (withRows.length === 0) {
+        toast.error("Hali birorta testda natija yo'q");
+        return;
+      }
+      await downloadAllTestResults(withRows);
+      toast.success(`${withRows.length} ta test natijasi yuklandi`);
+    } catch {
+      toast.error("Yuklab bo'lmadi");
+    } finally {
+      setExporting(null);
+    }
+  };
 
   const toggle = async (t: Test) => {
     const opening = t.status !== "open";
@@ -80,9 +157,22 @@ export function TestsList({
         title="Testlar"
         subtitle="Test yarating, import qiling va o'quvchilarga ruxsat bering. Natijalar avtomatik saqlanadi."
         action={
-          <Button onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4" /> Yangi test
-          </Button>
+          <div className="flex items-center gap-2">
+            {tests.length > 0 && (
+              <Button
+                variant="secondary"
+                onClick={exportAll}
+                disabled={!!exporting}
+                title="Barcha testlar natijasi — bitta Excel faylda, sinflar bo'yicha"
+              >
+                <Sheet className="h-4 w-4" />
+                {exporting === "all" ? "Tayyorlanmoqda…" : "Hammasi — Excel"}
+              </Button>
+            )}
+            <Button onClick={() => setOpen(true)}>
+              <Plus className="h-4 w-4" /> Yangi test
+            </Button>
+          </div>
         }
       />
 
@@ -184,6 +274,16 @@ export function TestsList({
                           {t.status === "closed" ? "Qayta ochish" : "Ruxsat berish"}
                         </>
                       )}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => exportOne(t)}
+                      disabled={!!exporting}
+                      title="Natijalarni Excel'ga yuklab olish (sinflar bo'yicha)"
+                    >
+                      <Download className="h-4 w-4" />
+                      {exporting === t.id ? "…" : "Excel"}
                     </Button>
                     <Link href={`${basePath}/tests/${t.id}`}>
                       <Button variant="secondary" size="sm">

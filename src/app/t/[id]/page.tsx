@@ -20,6 +20,7 @@ import {
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { isGradeValid, normalizeGrade } from "@/lib/grade";
 
 interface Meta {
   id: string;
@@ -73,6 +74,9 @@ export default function PublicTest() {
   }, [id]);
 
   const phoneOk = phone.replace(/\D/g, "").length >= 7;
+  // natijalar sinflar bo'yicha ajratilishi uchun sinf majburiy
+  const gradeOk = isGradeValid(grade);
+  const gradeNorm = normalizeGrade(grade);
 
   const start = async () => {
     if (!name.trim()) {
@@ -81,6 +85,10 @@ export default function PublicTest() {
     }
     if (!phoneOk) {
       setStartErr("Ota-ona telefon raqamini kiriting");
+      return;
+    }
+    if (!gradeOk) {
+      setStartErr("Sinfingizni kiriting — masalan 9-A");
       return;
     }
     setStarting(true);
@@ -100,7 +108,7 @@ export default function PublicTest() {
       const res = await fetch(`/api/public/tests/${id}/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, grade, phone }),
+        body: JSON.stringify({ name, grade: gradeNorm, phone }),
       });
       const d = await res.json().catch(() => ({}));
       if (res.ok && d.attempt && d.questions) {
@@ -268,7 +276,14 @@ export default function PublicTest() {
                     placeholder="+998 90 123 45 67"
                   />
                 </Field>
-                <Field label="Sinf" hint="ixtiyoriy">
+                <Field
+                  label="Sinf"
+                  hint={
+                    grade.trim() && gradeOk
+                      ? `${gradeNorm} sifatida yoziladi`
+                      : "masalan: 9-A"
+                  }
+                >
                   <Input
                     value={grade}
                     onChange={(e) => setGrade(e.target.value)}
@@ -287,7 +302,7 @@ export default function PublicTest() {
                 size="lg"
                 className="mt-5 w-full"
                 onClick={start}
-                disabled={starting || !name.trim() || !phoneOk}
+                disabled={starting || !name.trim() || !phoneOk || !gradeOk}
               >
                 {starting ? (
                   <Loader2 className="h-5 w-5 animate-spin" />

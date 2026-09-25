@@ -1,3 +1,4 @@
+import { isGradeValid, normalizeGrade } from "@/lib/grade";
 import { json, err, notFound } from "@/server/api";
 import { connectDB } from "@/server/db";
 import { Test, TestAttempt } from "@/server/models";
@@ -37,12 +38,17 @@ export const POST = async (req: Request, ctx: { params: { id: string } }) => {
   }
 
   const name = (b.name || "").trim();
-  const grade = (b.grade || "").trim();
+  const gradeRaw = (b.grade || "").trim();
   const phone = (b.phone || "").trim();
   if (!name) return err("Ism-familiyani kiriting");
   if (!phone) return err("Ota-ona telefon raqamini kiriting");
   if (phone.replace(/\D/g, "").length < 7)
     return err("Telefon raqami to'liq emas");
+  // natijalar sinflar kesimida yuklanishi uchun sinf majburiy va bir xil
+  // ko'rinishda ("8a" → "8-A") saqlanadi
+  if (!isGradeValid(gradeRaw))
+    return err("Sinfingizni kiriting — masalan 9-A");
+  const grade = normalizeGrade(gradeRaw);
 
   await connectDB();
   let test;
