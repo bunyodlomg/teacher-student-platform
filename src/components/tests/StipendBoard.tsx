@@ -12,6 +12,7 @@ import type { TestExportBundle } from "@/lib/testExport";
 import {
   buildStipendStandings,
   COUNTED_SUBJECTS,
+  MIN_TOTAL,
   type ClassStanding,
   type StipendEntry,
 } from "@/lib/stipend";
@@ -104,6 +105,7 @@ export function StipendBoard({
   };
 
   const totalEntries = standings?.reduce((s, c) => s + c.entries.length, 0) ?? 0;
+  const withWinner = standings?.filter((s) => s.winner).length ?? 0;
 
   return (
     <div>
@@ -118,7 +120,7 @@ export function StipendBoard({
         eyebrow="Rag'bat"
         title="Stipendiya — sinf g'oliblari"
         gradient
-        subtitle={`Har o'quvchining har fandan eng yuqori natijasi olinadi, so'ng eng kuchli ${COUNTED_SUBJECTS} fan foizi qo'shiladi (maks ${MAX_TOTAL}). Sinfdagi eng yuqori ball — stipendiyaga nomzod.`}
+        subtitle={`Har o'quvchining har fandan eng yuqori natijasi olinadi, so'ng eng kuchli ${COUNTED_SUBJECTS} fan foizi qo'shiladi (maks ${MAX_TOTAL}). Sinfdagi eng yuqori ball — stipendiyaga nomzod. ${MIN_TOTAL} balldan past to'plaganlar munosib emas.`}
         action={
           <div className="flex items-center gap-2">
             <Button
@@ -167,7 +169,9 @@ export function StipendBoard({
           <p className="mb-4 text-[13px] text-muted">
             <span className="font-semibold text-ink">{standings.length}</span> ta
             sinf · <span className="font-semibold text-ink">{totalEntries}</span>{" "}
-            ta ishtirokchi reytingda
+            ta ishtirokchi ·{" "}
+            <span className="font-semibold text-accent">{withWinner}</span> ta
+            sinfda munosib g'olib aniqlandi
           </p>
 
           <div className="grid gap-3">
@@ -199,57 +203,90 @@ function ClassCard({
   onToggle: () => void;
 }) {
   const { grade, winner, entries } = standing;
-  const rest = entries.slice(1);
+  // g'olib bo'lsa u yuqorida ko'rsatiladi, ro'yxatda qolganlari qoladi
+  const rest = winner ? entries.slice(1) : entries;
 
   return (
-    <GlassCard className="overflow-hidden rounded-2xl border border-border p-0">
+    <GlassCard
+      className="overflow-hidden rounded-2xl border border-border p-0"
+      glow={!!winner}
+    >
       <div className="flex flex-wrap items-center gap-4 p-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent-gradient text-white shadow-glow-accent">
+        <div
+          className={cn(
+            "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
+            winner
+              ? "bg-accent-gradient text-white shadow-glow-accent"
+              : "bg-elevated text-faint"
+          )}
+        >
           <Trophy className="h-6 w-6" />
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-2">
             <Badge tone="accent">{grade}</Badge>
-            {winner.isGuest && <Badge tone="neutral">mehmon</Badge>}
+            {winner?.isGuest && <Badge tone="neutral">mehmon</Badge>}
             {/* 1 fan ishlagan o'quvchi ham sinfda birinchi bo'lib qolishi mumkin —
                 admin buni ko'rib turishi uchun ogohlantiramiz */}
-            {winner.counted.length < COUNTED_SUBJECTS && (
-              <Badge tone="warning">
-                faqat {winner.counted.length} fan
-              </Badge>
+            {winner && winner.counted.length < COUNTED_SUBJECTS && (
+              <Badge tone="warning">faqat {winner.counted.length} fan</Badge>
             )}
           </div>
-          <p className="font-display text-[18px] font-semibold text-ink">
-            {winner.name}
-          </p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted">
-            {winner.counted.map((c) => (
-              <span key={c.subject} className="flex items-center gap-1">
-                <span className="text-faint">{c.subject}</span>
-                <span className="font-semibold text-ink nums">{c.pct}%</span>
-                {c.tries > 1 && (
-                  <span
-                    className="text-faint"
-                    title={`${c.tries} ta urinishdan eng yaxshisi`}
-                  >
-                    ({c.tries}×)
+
+          {winner ? (
+            <>
+              <p className="font-display text-[18px] font-semibold text-ink">
+                {winner.name}
+              </p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted">
+                {winner.counted.map((c) => (
+                  <span key={c.subject} className="flex items-center gap-1">
+                    <span className="text-faint">{c.subject}</span>
+                    <span className="nums font-semibold text-ink">
+                      {c.pct}%
+                    </span>
+                    {c.tries > 1 && (
+                      <span
+                        className="text-faint"
+                        title={`${c.tries} ta urinishdan eng yaxshisi`}
+                      >
+                        ({c.tries}×)
+                      </span>
+                    )}
                   </span>
+                ))}
+                {winner.phone && (
+                  <span className="text-faint">{winner.phone}</span>
                 )}
-              </span>
-            ))}
-            {winner.phone && <span className="text-faint">{winner.phone}</span>}
-          </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="font-display text-[18px] font-semibold text-muted">
+                Munosib nomzod yo'q
+              </p>
+              <p className="mt-1.5 text-[12px] text-faint">
+                Sinfdagi eng yuqori natija{" "}
+                <span className="nums font-semibold text-muted">
+                  {entries[0]?.total ?? 0}
+                </span>{" "}
+                ball — {MIN_TOTAL} ball chegarasidan past
+              </p>
+            </>
+          )}
         </div>
 
-        <div className="text-right">
-          <p className="nums font-display text-[26px] font-semibold leading-none text-gradient">
-            {winner.total}
-          </p>
-          <p className="mt-1 text-[11px] uppercase tracking-wide text-faint">
-            {MAX_TOTAL} dan
-          </p>
-        </div>
+        {winner && (
+          <div className="text-right">
+            <p className="nums font-display text-[26px] font-semibold leading-none text-gradient">
+              {winner.total}
+            </p>
+            <p className="mt-1 text-[11px] uppercase tracking-wide text-faint">
+              {MAX_TOTAL} dan
+            </p>
+          </div>
+        )}
 
         {rest.length > 0 && (
           <button
@@ -258,7 +295,7 @@ function ClassCard({
             title="Sinfdagi qolgan ishtirokchilar"
           >
             <Users className="h-3.5 w-3.5" />
-            yana {rest.length}
+            {winner ? `yana ${rest.length}` : `${rest.length} ishtirokchi`}
             <ChevronDown
               className={cn(
                 "h-3.5 w-3.5 transition-transform",
@@ -272,7 +309,11 @@ function ClassCard({
       {open && rest.length > 0 && (
         <div className="border-t border-border/60 bg-elevated/30">
           {rest.map((e, i) => (
-            <RunnerUp key={`${e.name}-${i}`} entry={e} rank={i + 2} />
+            <RunnerUp
+              key={`${e.name}-${i}`}
+              entry={e}
+              rank={winner ? i + 2 : i + 1}
+            />
           ))}
         </div>
       )}
@@ -287,10 +328,25 @@ function RunnerUp({ entry, rank }: { entry: StipendEntry; rank: number }) {
       <span className="nums w-6 shrink-0 text-center text-[12px] font-semibold text-faint">
         {rank}
       </span>
-      {rank <= 3 && <Medal className="h-3.5 w-3.5 text-warning" />}
-      <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink">
+      {rank <= 3 && entry.eligible && (
+        <Medal className="h-3.5 w-3.5 text-warning" />
+      )}
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate text-[14px] font-medium",
+          entry.eligible ? "text-ink" : "text-muted"
+        )}
+      >
         {entry.name}
       </span>
+      {!entry.eligible && (
+        <span
+          className="text-[11px] text-faint"
+          title={`${MIN_TOTAL} balldan past — stipendiyaga munosib emas`}
+        >
+          munosib emas
+        </span>
+      )}
       <span className="flex flex-wrap items-center gap-x-2.5 text-[12px] text-muted">
         {entry.counted.map((c) => (
           <span key={c.subject}>
@@ -299,7 +355,12 @@ function RunnerUp({ entry, rank }: { entry: StipendEntry; rank: number }) {
           </span>
         ))}
       </span>
-      <span className="nums w-14 text-right font-semibold text-ink">
+      <span
+        className={cn(
+          "nums w-14 text-right font-semibold",
+          entry.eligible ? "text-ink" : "text-faint"
+        )}
+      >
         {entry.total}
       </span>
     </div>

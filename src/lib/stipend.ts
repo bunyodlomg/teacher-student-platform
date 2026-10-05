@@ -8,7 +8,10 @@
  *     olinadi (teng bo'lsa tezroq ishlagani).
  *  3. Umumiy ball = eng kuchli 2 ta fan foizlari yig'indisi (maks 200).
  *     Misol: Ali 100% + 90% = 190 · Vali 100% + 91% = 191 → Vali ustun.
- *  4. Sinf g'olibi — shu sinfdagi eng yuqori umumiy ball.
+ *  4. Umumiy balli MIN_TOTAL dan past bo'lgan o'quvchi stipendiyaga munosib
+ *     emas — reytingda ko'rinadi, lekin g'olib bo'la olmaydi.
+ *  5. Sinf g'olibi — shu sinfdagi eng yuqori munosib ball. Sinfda munosib
+ *     nomzod bo'lmasa, o'sha sinf g'olibsiz qoladi.
  *
  * Tugallanmagan ("ishlamoqda") urinishlar hisobga olinmaydi.
  */
@@ -25,6 +28,9 @@ import type { TestAttempt } from "@/lib/types";
 
 /** Reytingga nechta fan qo'shiladi. */
 export const COUNTED_SUBJECTS = 2;
+
+/** Stipendiyaga munosib bo'lish uchun kerakli eng kam umumiy ball. */
+export const MIN_TOTAL = 100;
 
 /** Bitta fan bo'yicha o'quvchining eng yaxshi natijasi. */
 export interface SubjectScore {
@@ -50,15 +56,17 @@ export interface StipendEntry {
   counted: SubjectScore[];
   /** counted foizlari yig'indisi — maks 200 */
   total: number;
+  /** total >= MIN_TOTAL — stipendiyaga da'vo qila oladimi */
+  eligible: boolean;
 }
 
 /** Bitta sinf bo'yicha reyting. */
 export interface ClassStanding {
   grade: string;
-  /** umumiy ball bo'yicha tartiblangan */
+  /** umumiy ball bo'yicha tartiblangan (munosib bo'lmaganlar ham bor) */
   entries: StipendEntry[];
-  /** entries[0] — stipendiyaga nomzod */
-  winner: StipendEntry;
+  /** stipendiyaga nomzod — sinfda munosib o'quvchi bo'lmasa `undefined` */
+  winner?: StipendEntry;
 }
 
 /** Flatten qilingan bitta natija — qaysi test, qaysi fan, qaysi sinf. */
@@ -164,6 +172,7 @@ export function buildStipendStandings(
 
     // 4. Eng kuchli 2 fan — umumiy ball
     const counted = subjects.slice(0, COUNTED_SUBJECTS);
+    const total = counted.reduce((s, c) => s + c.pct, 0);
     const withName = items.find((f) => f.row.name && f.row.name !== "—") ?? items[0];
     entries.push({
       name: withName.row.name,
@@ -172,7 +181,8 @@ export function buildStipendStandings(
       isGuest: items.every((f) => f.row.isGuest),
       subjects,
       counted,
-      total: counted.reduce((s, c) => s + c.pct, 0),
+      total,
+      eligible: total >= MIN_TOTAL,
     });
   }
 
@@ -194,7 +204,13 @@ export function buildStipendStandings(
           totalSpent(a) - totalSpent(b) ||
           a.name.localeCompare(b.name)
       );
-      return { grade, entries: sorted, winner: sorted[0] };
+      // ball bo'yicha tartiblanganidan keyin birinchi o'rindagi munosib
+      // bo'lmasa, undan pastdagilar ham munosib emas — demak g'olib yo'q
+      return {
+        grade,
+        entries: sorted,
+        winner: sorted[0]?.eligible ? sorted[0] : undefined,
+      };
     })
     .sort((a, b) => {
       const ka = gradeSortKey(a.grade);

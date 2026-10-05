@@ -1,6 +1,6 @@
 import type { Test, TestAttempt, User } from "@/lib/types";
 import type { ClassStanding, SubjectScore } from "@/lib/stipend";
-import { COUNTED_SUBJECTS } from "@/lib/stipend";
+import { COUNTED_SUBJECTS, MIN_TOTAL } from "@/lib/stipend";
 import { fallbackGradeLabel, gradeLabelFor, gradeSortKey } from "@/lib/grade";
 import { formatDateTime } from "@/lib/utils";
 import { makeZip, saveBlob, ZipEntry } from "@/lib/zip";
@@ -531,21 +531,27 @@ export async function downloadStipendList(
     "Umumiy ball",
     "Ishlagan fani",
   ];
-  const winBody = standings.map((s) => [
-    s.grade,
-    s.winner.name,
-    s.winner.phone || "—",
-    ...subjCell(s.winner.counted[0]),
-    ...subjCell(s.winner.counted[1]),
-    s.winner.total,
-    s.winner.subjects.length,
-  ]);
+  // Sinfda munosib nomzod bo'lmasligi mumkin — qator baribir chiqadi, shunda
+  // admin "bu sinfdan hech kim o'tmadi" ekanini ko'radi.
+  const winBody = standings.map((s) =>
+    s.winner
+      ? [
+          s.grade,
+          s.winner.name,
+          s.winner.phone || "—",
+          ...subjCell(s.winner.counted[0]),
+          ...subjCell(s.winner.counted[1]),
+          s.winner.total,
+          s.winner.subjects.length,
+        ]
+      : [s.grade, "— munosib nomzod yo'q —", "—", "—", "—", "—", "—", "—", "—"]
+  );
   const wsWin = XLSX.utils.aoa_to_sheet([
     ["Stipendiya — sinf g'oliblari"],
     [
       `Har sinfdan eng yuqori ball · eng kuchli ${COUNTED_SUBJECTS} fan yig'indisi (maks ${
         COUNTED_SUBJECTS * 100
-      })`,
+      }) · munosib chegara ${MIN_TOTAL} ball`,
     ],
     [],
     WIN_HEAD,
@@ -561,15 +567,26 @@ export async function downloadStipendList(
   XLSX.utils.book_append_sheet(wb, wsWin, sheetName("G'oliblar", used));
 
   // 2. To'liq reyting — barcha ishtirokchilar, sinf kesimida
-  const FULL_HEAD = ["O'rin", "Ism-familiya", "Telefon", ...WIN_HEAD.slice(3)];
+  const FULL_HEAD = [
+    "O'rin",
+    "Ism-familiya",
+    "Telefon",
+    ...WIN_HEAD.slice(3),
+    "Holat",
+  ];
   const fullAoa: Cell[][] = [
     ["Stipendiya — to'liq reyting"],
-    [`Sinf ichida umumiy ball bo'yicha tartiblangan`],
+    [
+      `Sinf ichida umumiy ball bo'yicha tartiblangan · ${MIN_TOTAL} balldan past — munosib emas`,
+    ],
     [],
   ];
   const pctRows: number[] = [];
   for (const s of standings) {
-    fullAoa.push([`${s.grade} · ${s.entries.length} ishtirokchi`]);
+    const fit = s.entries.filter((e) => e.eligible).length;
+    fullAoa.push([
+      `${s.grade} · ${s.entries.length} ishtirokchi · ${fit} ta munosib`,
+    ]);
     fullAoa.push(FULL_HEAD);
     s.entries.forEach((e, i) => {
       pctRows.push(fullAoa.length);
@@ -581,12 +598,15 @@ export async function downloadStipendList(
         ...subjCell(e.counted[1]),
         e.total,
         e.subjects.length,
+        e === s.winner ? "G'OLIB" : e.eligible ? "munosib" : "munosib emas",
       ]);
     });
     fullAoa.push([]);
   }
   const wsFull = XLSX.utils.aoa_to_sheet(fullAoa);
-  wsFull["!cols"] = [7, 26, 16, 20, 8, 20, 8, 13, 13].map((wch) => ({ wch }));
+  wsFull["!cols"] = [7, 26, 16, 20, 8, 20, 8, 13, 13, 14].map((wch) => ({
+    wch,
+  }));
   markPercent(XLSX, wsFull, pctRows, [4, 6]);
   XLSX.utils.book_append_sheet(wb, wsFull, sheetName("To'liq reyting", used));
 
