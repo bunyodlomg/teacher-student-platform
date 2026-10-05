@@ -8,10 +8,20 @@
  *  2. ism + sinf — so'zlar tartibi va katta-kichik harf hisobga olinmaydi
  *     ("Tojimatov murodilla" = "murodilla tojimatov").
  * Ikkalasi ham bitta ishtirokchini ko'rsatsa, urinishlar birlashtiriladi.
+ *
+ * Shu aniqlash bitta test ichida ham (bestAttemptRows), testlar kesimida ham
+ * (stipendiya reytingi) ishlatiladi — qarang: `src/lib/stipend.ts`.
  */
 
 import type { ExportRow } from "@/lib/testExport";
 import { normalizeGrade } from "@/lib/grade";
+
+/** Ishtirokchini taniydigan minimal maydonlar. */
+export interface Identity {
+  name: string;
+  grade: string;
+  phone: string;
+}
 
 /** Ismni taqqoslash uchun: harflar kichik, so'zlar alifbo tartibida. */
 function nameKey(name: string): string {
@@ -54,8 +64,35 @@ class Union {
   }
 }
 
+/**
+ * Ro'yxatni ishtirokchilarga ajratadi — qaytaradigan har bir massiv bitta
+ * odamning yozuvlari (indekslar). Telefon yoki ism+sinf ustma-ust tushsa,
+ * yozuvlar bitta guruhga birlashadi.
+ */
+export function participantGroups(items: Identity[]): number[][] {
+  const u = new Union();
+  const own = items.map((r, i) => {
+    const key = `i:${i}`;
+    u.find(key);
+    const ph = phoneKey(r.phone);
+    if (ph.length >= 7) u.join(key, `p:${ph}`);
+    const nk = nameKey(r.name);
+    if (nk) u.join(key, `n:${nk}|${normalizeGrade(r.grade)}`);
+    return key;
+  });
+
+  const groups = new Map<string, number[]>();
+  items.forEach((_, i) => {
+    const root = u.find(own[i]);
+    const list = groups.get(root);
+    if (list) list.push(i);
+    else groups.set(root, [i]);
+  });
+  return Array.from(groups.values());
+}
+
 /** Guruhdagi eng ko'p uchragan bo'sh bo'lmagan sinf. */
-function dominantGrade(rows: ExportRow[]): string {
+export function dominantGrade(rows: Identity[]): string {
   const count = new Map<string, number>();
   for (const r of rows) {
     const g = normalizeGrade(r.grade);
@@ -80,28 +117,11 @@ export function bestAttemptRows(rows: ExportRow[]): {
   rows: ExportRow[];
   removed: number;
 } {
-  const u = new Union();
-  const rowKey = rows.map((r, i) => {
-    const own = `i:${i}`;
-    u.find(own);
-    const ph = phoneKey(r.phone);
-    if (ph.length >= 7) u.join(own, `p:${ph}`);
-    const nk = nameKey(r.name);
-    if (nk) u.join(own, `n:${nk}|${normalizeGrade(r.grade)}`);
-    return own;
-  });
-
-  const groups = new Map<string, ExportRow[]>();
-  rows.forEach((r, i) => {
-    const root = u.find(rowKey[i]);
-    const list = groups.get(root);
-    if (list) list.push(r);
-    else groups.set(root, [r]);
-  });
-
   const out: ExportRow[] = [];
   let removed = 0;
-  for (const list of groups.values()) {
+
+  for (const idx of participantGroups(rows)) {
+    const list = idx.map((i) => rows[i]);
     removed += list.length - 1;
     const best = [...list].sort((a, b) => {
       if (b.attempt.score !== a.attempt.score)
@@ -110,7 +130,9 @@ export function bestAttemptRows(rows: ExportRow[]): {
       return spent(a.attempt) - spent(b.attempt);
     })[0];
     const grade = dominantGrade(list);
-    out.push(grade && grade !== normalizeGrade(best.grade) ? { ...best, grade } : best);
+    out.push(
+      grade && grade !== normalizeGrade(best.grade) ? { ...best, grade } : best
+    );
   }
 
   out.sort((a, b) => b.attempt.score - a.attempt.score);
@@ -118,7 +140,7 @@ export function bestAttemptRows(rows: ExportRow[]): {
 }
 
 /** Testga sarflangan vaqt (ms) — teng ballarni ajratish uchun. */
-function spent(a: ExportRow["attempt"]): number {
+export function spent(a: ExportRow["attempt"]): number {
   if (!a.startedAt || !a.submittedAt) return Number.MAX_SAFE_INTEGER;
   const ms = new Date(a.submittedAt).getTime() - new Date(a.startedAt).getTime();
   return ms > 0 ? ms : Number.MAX_SAFE_INTEGER;

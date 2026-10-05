@@ -81,3 +81,25 @@ export function gradeSortKey(label: string): [number, number, string] {
   const letter = suffix === "sinf" ? "" : suffix;
   return [Number(m[1]), letter ? letter.charCodeAt(0) : -1, label];
 }
+
+/**
+ * Ro'yxatdagi (mehmon bo'lmagan) o'quvchilar uchun zaxira sinf nomi.
+ * Guruh nomi sinfga o'xshasa ("8-A Ingliz tili") — mehmonlar yozgan "8a" bilan
+ * bitta sinfga tushishi uchun uni ham normallashtiramiz.
+ */
+export function fallbackGradeLabel(groupName?: string): string {
+  if (!groupName) return "";
+  const n = normalizeGrade(groupName);
+  return n.match(/^\d/) ? n : groupName;
+}
+
+/** Bitta natija qaysi sinfga tegishli — mehmon yozgani, yo'q bo'lsa guruh nomi. */
+export function gradeLabelFor(
+  r: { grade: string; isGuest: boolean },
+  fallback: string
+): string {
+  return (
+    normalizeGrade(r.grade) ||
+    (!r.isGuest && fallback ? fallback : NO_GRADE_LABEL)
+  );
+}

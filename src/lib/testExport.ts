@@ -1,5 +1,7 @@
 import type { Test, TestAttempt, User } from "@/lib/types";
-import { gradeSortKey, NO_GRADE_LABEL, normalizeGrade } from "@/lib/grade";
+import type { ClassStanding, SubjectScore } from "@/lib/stipend";
+import { COUNTED_SUBJECTS } from "@/lib/stipend";
+import { fallbackGradeLabel, gradeLabelFor, gradeSortKey } from "@/lib/grade";
 import { formatDateTime } from "@/lib/utils";
 import { makeZip, saveBlob, ZipEntry } from "@/lib/zip";
 
@@ -138,17 +140,9 @@ export function groupRowsByGrade(
   fallbackLabel?: string
 ): GradeBucket[] {
   const map = new Map<string, ExportRow[]>();
-  // Guruh nomi sinfga o'xshasa ("8-A Ingliz tili") — mehmonlar yozgan "8a" bilan
-  // bitta varaqqa tushishi uchun uni ham normallashtiramiz.
-  const fallback = fallbackLabel
-    ? normalizeGrade(fallbackLabel).match(/^\d/)
-      ? normalizeGrade(fallbackLabel)
-      : fallbackLabel
-    : "";
+  const fallback = fallbackGradeLabel(fallbackLabel);
   for (const r of rows) {
-    const label =
-      normalizeGrade(r.grade) ||
-      (!r.isGuest && fallback ? fallback : NO_GRADE_LABEL);
+    const label = gradeLabelFor(r, fallback);
     const list = map.get(label);
     if (list) list.push(r);
     else map.set(label, [r]);
@@ -505,4 +499,96 @@ export async function downloadAllTestResults(
   }
 
   XLSX.writeFile(wb, fileName);
+}
+
+// ---- Stipendiya reytingi ----
+
+/**
+ * Stipendiya reytingi → Excel.
+ * "G'oliblar" varag'ida har sinfdan bitta nomzod, "To'liq reyting" varag'ida
+ * barcha ishtirokchilar sinf kesimida. Hisob qoidasi: `src/lib/stipend.ts`.
+ */
+export async function downloadStipendList(
+  standings: ClassStanding[],
+  fileName = "Stipendiya - sinf g'oliblari.xlsx"
+): Promise<void> {
+  const XLSX = await import("xlsx");
+  const wb = XLSX.utils.book_new();
+  const used = new Set<string>();
+
+  const subjCell = (s: SubjectScore | undefined): Cell[] =>
+    s ? [s.subject, s.pct / 100] : ["—", "—"];
+
+  // 1. G'oliblar — har sinfdan bitta
+  const WIN_HEAD = [
+    "Sinf",
+    "Ism-familiya",
+    "Telefon",
+    "1-fan",
+    "Foiz",
+    "2-fan",
+    "Foiz",
+    "Umumiy ball",
+    "Ishlagan fani",
+  ];
+  const winBody = standings.map((s) => [
+    s.grade,
+    s.winner.name,
+    s.winner.phone || "—",
+    ...subjCell(s.winner.counted[0]),
+    ...subjCell(s.winner.counted[1]),
+    s.winner.total,
+    s.winner.subjects.length,
+  ]);
+  const wsWin = XLSX.utils.aoa_to_sheet([
+    ["Stipendiya — sinf g'oliblari"],
+    [
+      `Har sinfdan eng yuqori ball · eng kuchli ${COUNTED_SUBJECTS} fan yig'indisi (maks ${
+        COUNTED_SUBJECTS * 100
+      })`,
+    ],
+    [],
+    WIN_HEAD,
+    ...winBody,
+  ]);
+  wsWin["!cols"] = [12, 26, 16, 20, 8, 20, 8, 13, 13].map((wch) => ({ wch }));
+  markPercent(
+    XLSX,
+    wsWin,
+    winBody.map((_, i) => 4 + i),
+    [4, 6]
+  );
+  XLSX.utils.book_append_sheet(wb, wsWin, sheetName("G'oliblar", used));
+
+  // 2. To'liq reyting — barcha ishtirokchilar, sinf kesimida
+  const FULL_HEAD = ["O'rin", "Ism-familiya", "Telefon", ...WIN_HEAD.slice(3)];
+  const fullAoa: Cell[][] = [
+    ["Stipendiya — to'liq reyting"],
+    [`Sinf ichida umumiy ball bo'yicha tartiblangan`],
+    [],
+  ];
+  const pctRows: number[] = [];
+  for (const s of standings) {
+    fullAoa.push([`${s.grade} · ${s.entries.length} ishtirokchi`]);
+    fullAoa.push(FULL_HEAD);
+    s.entries.forEach((e, i) => {
+      pctRows.push(fullAoa.length);
+      fullAoa.push([
+        i + 1,
+        e.name,
+        e.phone || "—",
+        ...subjCell(e.counted[0]),
+        ...subjCell(e.counted[1]),
+        e.total,
+        e.subjects.length,
+      ]);
+    });
+    fullAoa.push([]);
+  }
+  const wsFull = XLSX.utils.aoa_to_sheet(fullAoa);
+  wsFull["!cols"] = [7, 26, 16, 20, 8, 20, 8, 13, 13].map((wch) => ({ wch }));
+  markPercent(XLSX, wsFull, pctRows, [4, 6]);
+  XLSX.utils.book_append_sheet(wb, wsFull, sheetName("To'liq reyting", used));
+
+  XLSX.writeFile(wb, safeFileName(fileName) || "stipendiya.xlsx");
 }

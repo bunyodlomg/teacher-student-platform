@@ -34,6 +34,7 @@ import {
   Filter,
   FolderArchive,
   Trash2,
+  Trophy,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -186,6 +187,14 @@ export function TestsList({
           <div className="flex items-center gap-2">
             {tests.length > 0 && (
               <>
+                <Link href={`${basePath}/tests/stipend`}>
+                  <Button
+                    variant="secondary"
+                    title="Har sinfdan eng kuchli o'quvchi — eng yaxshi 2 fan yig'indisi bo'yicha"
+                  >
+                    <Trophy className="h-4 w-4" /> Stipendiya
+                  </Button>
+                </Link>
                 <button
                   onClick={() => setBestOnly((v) => !v)}
                   disabled={!!exporting}
